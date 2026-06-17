@@ -1,0 +1,13 @@
+{"file": ".trellis/spec/nako-api/backend/index.md", "reason": "Entry point for Admin DTO and generated contract work."}
+{"file": ".trellis/spec/nako-api/backend/admin-and-public-contracts.md", "reason": "Operator readiness is an Admin-only redaction-sensitive contract."}
+{"file": ".trellis/spec/nako-api/backend/directory-structure.md", "reason": "Generated Admin contract source and artifact locations must stay aligned."}
+{"file": ".trellis/spec/nako-api/backend/quality-guidelines.md", "reason": "Generated contract drift and redaction checks are required."}
+{"file": ".trellis/spec/nako-server/backend/index.md", "reason": "Entry point for server route and test guidance."}
+{"file": ".trellis/spec/nako-server/backend/http-api-patterns.md", "reason": "Admin route composition must stay read-only and guarded."}
+{"file": ".trellis/spec/nako-server/backend/quality-guidelines.md", "reason": "Server tests and nextest expectations for route changes."}
+{"file": ".trellis/spec/nako-server/backend/source-fingerprint-hash-policy.md", "reason": "Source hash evidence and retry facts must stay redaction-safe."}
+{"file": ".trellis/spec/admin-web/frontend/index.md", "reason": "Entry point for Admin Web generated contract and mock data changes."}
+{"file": ".trellis/spec/admin-web/frontend/routes-forms-and-tests.md", "reason": "Admin Web contract consumers use generated clients and deterministic mocks."}
+{"file": ".trellis/spec/guides/index.md", "reason": "Shared thinking guide index for cross-layer and reuse checks."}
+{"file": ".trellis/spec/guides/cross-layer-thinking-guide.md", "reason": "The task spans API, server, generated TypeScript, and mock data."}
+{"file": ".trellis/spec/guides/code-reuse-thinking-guide.md", "reason": "Action plan should reuse existing readiness helpers and action vocabularies."}

@@ -2349,6 +2349,25 @@ export interface AdminOperatorReadinessIntakeEvidenceSummary {
   watch_folder_attention_count: number;
 }
 
+export type AdminOperatorReadinessIntakeComponent =
+  | "library_scan"
+  | "source_fingerprint_hash"
+  | "watch_folder";
+
+export interface AdminOperatorReadinessIntakeActionPlanEntry {
+  component: AdminOperatorReadinessIntakeComponent;
+  status: AdminOperatorReadinessStatus;
+  reason: AdminOperatorReadinessReason;
+  source_reason: string | null;
+  attention_count: number;
+  action: AdminOperatorReadinessAction | null;
+}
+
+export interface AdminOperatorReadinessIntakeActionPlan {
+  read_only: boolean;
+  components: AdminOperatorReadinessIntakeActionPlanEntry[];
+}
+
 export interface AdminOperatorReadinessVfsCacheRepairPressure {
   total_unresolved_targets: number;
   primary_classification: AdminVfsCacheRepairClassification;
@@ -2385,6 +2404,7 @@ export interface AdminOperatorReadinessResponse {
         }>;
       };
       intake_evidence: AdminOperatorReadinessIntakeEvidenceSummary;
+      intake_action_plan: AdminOperatorReadinessIntakeActionPlan;
       check: AdminOperatorReadinessCheck;
     };
     playback: {

@@ -1,0 +1,12 @@
+{"file": ".trellis/spec/nako-api/backend/index.md", "reason": "Verify Admin DTO and generated contract compliance."}
+{"file": ".trellis/spec/nako-api/backend/admin-and-public-contracts.md", "reason": "Verify Admin-only operator readiness redaction and contract shape."}
+{"file": ".trellis/spec/nako-api/backend/quality-guidelines.md", "reason": "Verify generated contract drift tests and redaction gates."}
+{"file": ".trellis/spec/nako-server/backend/index.md", "reason": "Verify server route and test expectations."}
+{"file": ".trellis/spec/nako-server/backend/http-api-patterns.md", "reason": "Verify route remains guarded and read-only."}
+{"file": ".trellis/spec/nako-server/backend/quality-guidelines.md", "reason": "Verify focused nextest checks are appropriate."}
+{"file": ".trellis/spec/nako-server/backend/source-fingerprint-hash-policy.md", "reason": "Verify source hash facts remain safe and policy-compatible."}
+{"file": ".trellis/spec/admin-web/frontend/index.md", "reason": "Verify Admin Web generated contract and mock data changes."}
+{"file": ".trellis/spec/admin-web/frontend/routes-forms-and-tests.md", "reason": "Verify Admin Web check expectations."}
+{"file": ".trellis/spec/guides/index.md", "reason": "Verify cross-layer and reuse checklist is considered."}
+{"file": ".trellis/spec/guides/cross-layer-thinking-guide.md", "reason": "Verify API-to-frontend contract data flow."}
+{"file": ".trellis/spec/guides/code-reuse-thinking-guide.md", "reason": "Verify helper reuse and no unnecessary duplication."}

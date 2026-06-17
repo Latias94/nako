@@ -356,6 +356,7 @@ pub struct AdminOperatorReadinessMediaLibraryScanDetail {
     pub source_fingerprint_hash: AdminOverviewSourceFingerprintHashSummary,
     pub watch_folder_runtime: AdminOverviewWatchFolderRuntimeSummary,
     pub intake_evidence: AdminOperatorReadinessIntakeEvidenceSummary,
+    pub intake_action_plan: AdminOperatorReadinessIntakeActionPlan,
     pub check: AdminOperatorReadinessCheck,
 }
 
@@ -377,6 +378,30 @@ pub struct AdminOperatorReadinessIntakeEvidenceSummary {
     pub library_scan_attention_count: u32,
     pub source_fingerprint_hash_attention_count: u32,
     pub watch_folder_attention_count: u32,
+}
+
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+pub struct AdminOperatorReadinessIntakeActionPlan {
+    pub read_only: bool,
+    pub components: Vec<AdminOperatorReadinessIntakeActionPlanEntry>,
+}
+
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+pub struct AdminOperatorReadinessIntakeActionPlanEntry {
+    pub component: AdminOperatorReadinessIntakeComponent,
+    pub status: AdminOperatorReadinessStatus,
+    pub reason: AdminOperatorReadinessReason,
+    pub source_reason: Option<String>,
+    pub attention_count: u32,
+    pub action: Option<AdminOperatorReadinessAction>,
+}
+
+#[derive(Clone, Copy, Debug, Deserialize, Eq, PartialEq, Serialize)]
+#[serde(rename_all = "snake_case")]
+pub enum AdminOperatorReadinessIntakeComponent {
+    LibraryScan,
+    SourceFingerprintHash,
+    WatchFolder,
 }
 
 #[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]

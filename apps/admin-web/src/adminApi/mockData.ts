@@ -3342,6 +3342,38 @@ export const mockOperatorReadiness: AdminOperatorReadinessResponse = {
         source_fingerprint_hash_attention_count: 11,
         watch_folder_attention_count: 2,
       },
+      intake_action_plan: {
+        read_only: true,
+        components: [
+          {
+            component: "library_scan",
+            status: "degraded",
+            reason: "scan_repair_pressure",
+            source_reason: "failed_library_scan",
+            attention_count: 3,
+            action: mockOverview.operator_readiness.checks[1].action,
+          },
+          {
+            component: "source_fingerprint_hash",
+            status: "degraded",
+            reason: "scan_repair_pressure",
+            source_reason: "source_fingerprint_hash_failed",
+            attention_count: 11,
+            action: mockOverview.operator_readiness.checks[1].action,
+          },
+          {
+            component: "watch_folder",
+            status: "degraded",
+            reason: "watch_folder_runtime_coverage_gap",
+            source_reason: "unsupported_root",
+            attention_count: 2,
+            action: {
+              route_key: "systemConfig",
+              route_path: NAKO_ADMIN_ROUTES.systemConfig,
+            },
+          },
+        ],
+      },
       check: mockOverview.operator_readiness.checks[1],
     },
     playback: {

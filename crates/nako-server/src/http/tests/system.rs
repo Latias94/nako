@@ -18,8 +18,9 @@ use nako_api::admin::{
     AdminMetadataCandidateReviewRelatedHierarchyPlanRequest,
     AdminMetadataCandidateReviewRelatedHierarchyPlanResponse, AdminMetadataCandidateReviewResponse,
     AdminMetadataCandidateReviewUndoMode, AdminMetadataCandidateReviewUndoReason,
-    AdminOperatorReadinessArea, AdminOperatorReadinessReason, AdminOperatorReadinessResponse,
-    AdminOperatorReadinessStatus, AdminSourceDuplicateReconciliationApplyExpectedAction,
+    AdminOperatorReadinessArea, AdminOperatorReadinessIntakeComponent,
+    AdminOperatorReadinessReason, AdminOperatorReadinessResponse, AdminOperatorReadinessStatus,
+    AdminSourceDuplicateReconciliationApplyExpectedAction,
     AdminSourceDuplicateReconciliationApplyRequest,
     AdminSourceDuplicateReconciliationApplyResponse,
     AdminSourceDuplicateReconciliationPlanResponse, AdminSourceFingerprintHashEnqueueRequest,
@@ -543,6 +544,58 @@ async fn admin_v1_operator_readiness_returns_safe_drilldown_read_model() {
             .watch_folder_attention_count,
         0
     );
+    let action_plan = &readiness.details.media_library_scan.intake_action_plan;
+    assert!(action_plan.read_only);
+    assert_eq!(action_plan.components.len(), 3);
+    let library_scan_action = action_plan
+        .components
+        .iter()
+        .find(|entry| entry.component == AdminOperatorReadinessIntakeComponent::LibraryScan)
+        .expect("library scan action plan component");
+    assert_eq!(
+        library_scan_action.status,
+        AdminOperatorReadinessStatus::Degraded
+    );
+    assert_eq!(
+        library_scan_action.reason,
+        AdminOperatorReadinessReason::ScanWorkPending
+    );
+    assert_eq!(
+        library_scan_action.source_reason.as_deref(),
+        Some("library_scan_never_completed")
+    );
+    assert_eq!(library_scan_action.attention_count, 1);
+    assert_eq!(
+        library_scan_action
+            .action
+            .as_ref()
+            .map(|action| action.route_key.as_str()),
+        Some("jobs")
+    );
+    let source_hash_action = action_plan
+        .components
+        .iter()
+        .find(|entry| {
+            entry.component == AdminOperatorReadinessIntakeComponent::SourceFingerprintHash
+        })
+        .expect("source hash action plan component");
+    assert_eq!(
+        source_hash_action.status,
+        AdminOperatorReadinessStatus::Ready
+    );
+    assert_eq!(source_hash_action.attention_count, 0);
+    assert!(source_hash_action.action.is_none());
+    let watch_folder_action = action_plan
+        .components
+        .iter()
+        .find(|entry| entry.component == AdminOperatorReadinessIntakeComponent::WatchFolder)
+        .expect("watch folder action plan component");
+    assert_eq!(
+        watch_folder_action.status,
+        AdminOperatorReadinessStatus::Ready
+    );
+    assert_eq!(watch_folder_action.attention_count, 0);
+    assert!(watch_folder_action.action.is_none());
     assert_eq!(
         readiness.details.playback.readiness.status,
         AdminPlaybackReadinessStatus::Ready

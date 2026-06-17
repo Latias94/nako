@@ -57,14 +57,15 @@ use nako_api::{
         AdminNetworkReadinessReason, AdminNetworkReadinessStatus, AdminOperatorReadinessAction,
         AdminOperatorReadinessArea, AdminOperatorReadinessBackupDetail,
         AdminOperatorReadinessCheck, AdminOperatorReadinessDetails,
-        AdminOperatorReadinessDurableJobsDetail, AdminOperatorReadinessIntakeEvidenceSummary,
-        AdminOperatorReadinessLibraryScanPosture, AdminOperatorReadinessMediaLibraryScanDetail,
-        AdminOperatorReadinessNetworkDetail, AdminOperatorReadinessPlaybackDetail,
-        AdminOperatorReadinessReason, AdminOperatorReadinessResponse,
-        AdminOperatorReadinessSetupDetail, AdminOperatorReadinessStatus,
-        AdminOperatorReadinessStorageDetail, AdminOperatorReadinessSummary,
-        AdminOperatorReadinessVfsCacheRepairPressure, AdminOriginPolicyDiagnostics,
-        AdminOutboxEventListItem, AdminOutboxEventListResponse,
+        AdminOperatorReadinessDurableJobsDetail, AdminOperatorReadinessIntakeActionPlan,
+        AdminOperatorReadinessIntakeActionPlanEntry, AdminOperatorReadinessIntakeComponent,
+        AdminOperatorReadinessIntakeEvidenceSummary, AdminOperatorReadinessLibraryScanPosture,
+        AdminOperatorReadinessMediaLibraryScanDetail, AdminOperatorReadinessNetworkDetail,
+        AdminOperatorReadinessPlaybackDetail, AdminOperatorReadinessReason,
+        AdminOperatorReadinessResponse, AdminOperatorReadinessSetupDetail,
+        AdminOperatorReadinessStatus, AdminOperatorReadinessStorageDetail,
+        AdminOperatorReadinessSummary, AdminOperatorReadinessVfsCacheRepairPressure,
+        AdminOriginPolicyDiagnostics, AdminOutboxEventListItem, AdminOutboxEventListResponse,
         AdminOverviewMetadataProviderSummary, AdminOverviewMetadataSummary, AdminOverviewResponse,
         AdminOverviewRuntimeSummary, AdminOverviewSourceFingerprintHashSummary,
         AdminOverviewStartupSummary, AdminOverviewStatus, AdminOverviewStorageBackendSummary,
@@ -4431,6 +4432,11 @@ fn operator_readiness_details(
         &context.library_scan_posture,
         &context.startup.watch_folder_runtime,
     );
+    let scan_intake_action_plan = media_library_scan_intake_action_plan(
+        &context.source_fingerprint_hash,
+        &context.library_scan_posture,
+        &context.startup.watch_folder_runtime,
+    );
 
     AdminOperatorReadinessDetails {
         setup: AdminOperatorReadinessSetupDetail {
@@ -4455,6 +4461,7 @@ fn operator_readiness_details(
             source_fingerprint_hash: context.source_fingerprint_hash.clone(),
             watch_folder_runtime: context.startup.watch_folder_runtime.clone(),
             intake_evidence: scan_intake_evidence,
+            intake_action_plan: scan_intake_action_plan,
             check: scan_check,
         },
         playback: AdminOperatorReadinessPlaybackDetail {
@@ -4739,6 +4746,179 @@ fn media_library_scan_intake_evidence(
             source_fingerprint_hash,
         ),
         watch_folder_attention_count: watch_folder_attention_count(watch_folder_runtime),
+    }
+}
+
+fn media_library_scan_intake_action_plan(
+    source_fingerprint_hash: &AdminOverviewSourceFingerprintHashSummary,
+    library_scan_posture: &LibraryScanPostureAggregate,
+    watch_folder_runtime: &AdminOverviewWatchFolderRuntimeSummary,
+) -> AdminOperatorReadinessIntakeActionPlan {
+    AdminOperatorReadinessIntakeActionPlan {
+        read_only: true,
+        components: vec![
+            library_scan_intake_action_plan_entry(library_scan_posture),
+            source_fingerprint_hash_intake_action_plan_entry(source_fingerprint_hash),
+            watch_folder_intake_action_plan_entry(watch_folder_runtime),
+        ],
+    }
+}
+
+fn library_scan_intake_action_plan_entry(
+    posture: &LibraryScanPostureAggregate,
+) -> AdminOperatorReadinessIntakeActionPlanEntry {
+    if posture.configured_libraries == 0 {
+        return intake_action_plan_entry(
+            AdminOperatorReadinessIntakeComponent::LibraryScan,
+            AdminOperatorReadinessStatus::Unavailable,
+            AdminOperatorReadinessReason::NoMediaLibraryConfigured,
+            None,
+            1,
+            Some((
+                ADMIN_SYSTEM_CONFIG_ROUTE_KEY,
+                ADMIN_SYSTEM_CONFIG_ROUTE_PATH,
+            )),
+        );
+    }
+
+    let attention_count = library_scan_attention_count(posture);
+    if posture.failed_libraries > 0 {
+        return intake_action_plan_entry(
+            AdminOperatorReadinessIntakeComponent::LibraryScan,
+            AdminOperatorReadinessStatus::Degraded,
+            AdminOperatorReadinessReason::ScanRepairPressure,
+            Some("failed_library_scan"),
+            attention_count,
+            Some((ADMIN_JOBS_ROUTE_KEY, ADMIN_JOBS_ROUTE_PATH)),
+        );
+    }
+
+    if posture.pending_libraries > 0 {
+        return intake_action_plan_entry(
+            AdminOperatorReadinessIntakeComponent::LibraryScan,
+            AdminOperatorReadinessStatus::Degraded,
+            AdminOperatorReadinessReason::ScanWorkPending,
+            Some("library_scan_pending"),
+            attention_count,
+            Some((ADMIN_JOBS_ROUTE_KEY, ADMIN_JOBS_ROUTE_PATH)),
+        );
+    }
+
+    if posture.never_completed_libraries > 0 {
+        return intake_action_plan_entry(
+            AdminOperatorReadinessIntakeComponent::LibraryScan,
+            AdminOperatorReadinessStatus::Degraded,
+            AdminOperatorReadinessReason::ScanWorkPending,
+            Some("library_scan_never_completed"),
+            attention_count,
+            Some((ADMIN_JOBS_ROUTE_KEY, ADMIN_JOBS_ROUTE_PATH)),
+        );
+    }
+
+    intake_action_plan_entry(
+        AdminOperatorReadinessIntakeComponent::LibraryScan,
+        AdminOperatorReadinessStatus::Ready,
+        AdminOperatorReadinessReason::MediaLibraryConfigured,
+        None,
+        0,
+        None,
+    )
+}
+
+fn source_fingerprint_hash_intake_action_plan_entry(
+    summary: &AdminOverviewSourceFingerprintHashSummary,
+) -> AdminOperatorReadinessIntakeActionPlanEntry {
+    let attention_count = source_fingerprint_hash_attention_count(summary);
+    if summary.failed_jobs > 0 {
+        return intake_action_plan_entry(
+            AdminOperatorReadinessIntakeComponent::SourceFingerprintHash,
+            AdminOperatorReadinessStatus::Degraded,
+            AdminOperatorReadinessReason::ScanRepairPressure,
+            Some("source_fingerprint_hash_failed"),
+            attention_count,
+            Some((ADMIN_JOBS_ROUTE_KEY, ADMIN_JOBS_ROUTE_PATH)),
+        );
+    }
+
+    let pending_work = summary
+        .queued_jobs
+        .saturating_add(summary.running_jobs)
+        .saturating_add(summary.delayed_retry_jobs);
+    if pending_work > 0 {
+        return intake_action_plan_entry(
+            AdminOperatorReadinessIntakeComponent::SourceFingerprintHash,
+            AdminOperatorReadinessStatus::Degraded,
+            AdminOperatorReadinessReason::ScanWorkPending,
+            Some("source_fingerprint_hash_pending"),
+            attention_count,
+            Some((ADMIN_JOBS_ROUTE_KEY, ADMIN_JOBS_ROUTE_PATH)),
+        );
+    }
+
+    intake_action_plan_entry(
+        AdminOperatorReadinessIntakeComponent::SourceFingerprintHash,
+        AdminOperatorReadinessStatus::Ready,
+        AdminOperatorReadinessReason::MediaLibraryConfigured,
+        None,
+        0,
+        None,
+    )
+}
+
+fn watch_folder_intake_action_plan_entry(
+    runtime: &AdminOverviewWatchFolderRuntimeSummary,
+) -> AdminOperatorReadinessIntakeActionPlanEntry {
+    let attention_count = watch_folder_attention_count(runtime);
+    if let Some(pressure) = watch_folder_runtime_tick_pressure(runtime) {
+        return intake_action_plan_entry(
+            AdminOperatorReadinessIntakeComponent::WatchFolder,
+            AdminOperatorReadinessStatus::Degraded,
+            pressure.reason,
+            Some(pressure.source_reason),
+            attention_count,
+            Some((pressure.action_route_key, pressure.action_route_path)),
+        );
+    }
+
+    if let Some((source_reason, _)) = watch_folder_runtime_coverage_gap(runtime) {
+        return intake_action_plan_entry(
+            AdminOperatorReadinessIntakeComponent::WatchFolder,
+            AdminOperatorReadinessStatus::Degraded,
+            AdminOperatorReadinessReason::WatchFolderRuntimeCoverageGap,
+            Some(source_reason.as_str()),
+            attention_count,
+            Some((
+                ADMIN_SYSTEM_CONFIG_ROUTE_KEY,
+                ADMIN_SYSTEM_CONFIG_ROUTE_PATH,
+            )),
+        );
+    }
+
+    intake_action_plan_entry(
+        AdminOperatorReadinessIntakeComponent::WatchFolder,
+        AdminOperatorReadinessStatus::Ready,
+        AdminOperatorReadinessReason::MediaLibraryConfigured,
+        None,
+        0,
+        None,
+    )
+}
+
+fn intake_action_plan_entry(
+    component: AdminOperatorReadinessIntakeComponent,
+    status: AdminOperatorReadinessStatus,
+    reason: AdminOperatorReadinessReason,
+    source_reason: Option<&str>,
+    attention_count: u32,
+    action: Option<(&str, &str)>,
+) -> AdminOperatorReadinessIntakeActionPlanEntry {
+    AdminOperatorReadinessIntakeActionPlanEntry {
+        component,
+        status,
+        reason,
+        source_reason: source_reason.map(str::to_owned),
+        attention_count,
+        action: action.map(|(route_key, route_path)| operator_action(route_key, route_path)),
     }
 }
 
@@ -5722,6 +5902,128 @@ mod tests {
         assert_eq!(evidence.library_scan_attention_count, 49);
         assert_eq!(evidence.source_fingerprint_hash_attention_count, 21);
         assert_eq!(evidence.watch_folder_attention_count, 4);
+        assert!(!body.contains("local:///"));
+        assert!(!body.contains("input_json"));
+        assert!(!body.contains("summary_json"));
+        assert!(!body.contains("token"));
+    }
+
+    #[test]
+    fn media_library_scan_intake_action_plan_summarizes_component_actions() {
+        let startup = startup_summary_with_watch_folder_diagnostics(vec![
+            watch_folder_runtime_diagnostic(
+                AdminWatchFolderRuntimeCoverageStatus::Started,
+                Some(AdminWatchFolderRuntimeOutcomeStatus::Degraded),
+            ),
+            watch_folder_runtime_diagnostic(
+                AdminWatchFolderRuntimeCoverageStatus::Started,
+                Some(AdminWatchFolderRuntimeOutcomeStatus::ReconciliationPending),
+            ),
+            watch_folder_runtime_diagnostic(
+                AdminWatchFolderRuntimeCoverageStatus::UnsupportedRoot,
+                None,
+            ),
+            watch_folder_runtime_diagnostic(
+                AdminWatchFolderRuntimeCoverageStatus::MissingRoot,
+                None,
+            ),
+        ]);
+        let source_fingerprint_hash = AdminOverviewSourceFingerprintHashSummary {
+            queued_jobs: 2,
+            running_jobs: 3,
+            failed_jobs: 5,
+            cancelled_jobs: 7,
+            delayed_retry_jobs: 11,
+            ..AdminOverviewSourceFingerprintHashSummary::default()
+        };
+        let posture = LibraryScanPostureAggregate {
+            configured_libraries: startup.configured_libraries,
+            failed_libraries: 13,
+            pending_libraries: 17,
+            never_completed_libraries: 19,
+            succeeded_libraries: 23,
+        };
+        let plan = media_library_scan_intake_action_plan(
+            &source_fingerprint_hash,
+            &posture,
+            &startup.watch_folder_runtime,
+        );
+        let body = serde_json::to_string(&plan).unwrap();
+
+        assert!(plan.read_only);
+        assert_eq!(plan.components.len(), 3);
+
+        let library_scan = plan
+            .components
+            .iter()
+            .find(|entry| entry.component == AdminOperatorReadinessIntakeComponent::LibraryScan)
+            .expect("library scan plan entry");
+        assert_eq!(library_scan.status, AdminOperatorReadinessStatus::Degraded);
+        assert_eq!(
+            library_scan.reason,
+            AdminOperatorReadinessReason::ScanRepairPressure
+        );
+        assert_eq!(
+            library_scan.source_reason.as_deref(),
+            Some("failed_library_scan")
+        );
+        assert_eq!(library_scan.attention_count, 49);
+        assert_eq!(
+            library_scan
+                .action
+                .as_ref()
+                .map(|action| action.route_key.as_str()),
+            Some(ADMIN_JOBS_ROUTE_KEY)
+        );
+
+        let source_hash = plan
+            .components
+            .iter()
+            .find(|entry| {
+                entry.component == AdminOperatorReadinessIntakeComponent::SourceFingerprintHash
+            })
+            .expect("source hash plan entry");
+        assert_eq!(source_hash.status, AdminOperatorReadinessStatus::Degraded);
+        assert_eq!(
+            source_hash.reason,
+            AdminOperatorReadinessReason::ScanRepairPressure
+        );
+        assert_eq!(
+            source_hash.source_reason.as_deref(),
+            Some("source_fingerprint_hash_failed")
+        );
+        assert_eq!(source_hash.attention_count, 21);
+        assert_eq!(
+            source_hash
+                .action
+                .as_ref()
+                .map(|action| action.route_key.as_str()),
+            Some(ADMIN_JOBS_ROUTE_KEY)
+        );
+
+        let watch_folder = plan
+            .components
+            .iter()
+            .find(|entry| entry.component == AdminOperatorReadinessIntakeComponent::WatchFolder)
+            .expect("watch folder plan entry");
+        assert_eq!(watch_folder.status, AdminOperatorReadinessStatus::Degraded);
+        assert_eq!(
+            watch_folder.reason,
+            AdminOperatorReadinessReason::ScanRepairPressure
+        );
+        assert_eq!(
+            watch_folder.source_reason.as_deref(),
+            Some("watch_folder_runtime_degraded")
+        );
+        assert_eq!(watch_folder.attention_count, 4);
+        assert_eq!(
+            watch_folder
+                .action
+                .as_ref()
+                .map(|action| action.route_key.as_str()),
+            Some(ADMIN_JOBS_ROUTE_KEY)
+        );
+
         assert!(!body.contains("local:///"));
         assert!(!body.contains("input_json"));
         assert!(!body.contains("summary_json"));

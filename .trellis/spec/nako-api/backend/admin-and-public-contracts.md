@@ -818,7 +818,12 @@ diagnostics.failure.safe_message = StorageFailureClass::Unknown.safe_message().t
   token_reference_configured, exposure_mode, check }`.
 - Media library scan detail:
   `AdminOperatorReadinessMediaLibraryScanDetail { configured_libraries,
-  posture, source_hash_overview, watch_folder_runtime, check }`.
+  library_scan, source_fingerprint_hash, watch_folder_runtime,
+  intake_evidence, intake_action_plan, check }`.
+- Media library intake action plan:
+  `AdminOperatorReadinessIntakeActionPlan { read_only, components }`, where
+  each component entry exposes only component, status, reason, optional safe
+  source reason code, attention count, and optional existing Admin action.
 - Durable job detail:
   `AdminOperatorReadinessDurableJobsDetail { queue_pressure, check }`.
 - Storage detail:
@@ -837,6 +842,9 @@ diagnostics.failure.safe_message = StorageFailureClass::Unknown.safe_message().t
   watch-folder runtime summary, playback readiness diagnostics, durable job
   queue pressure, storage/VFS repair posture, network readiness diagnostics,
   and durable database backup posture.
+- Media Library Scan intake evidence and action-plan fields must stay
+  aggregate/read-only. They may point to existing Admin pages for inspection,
+  but they must not add execution authority to the readiness route.
 - The route must not perform repair, scanning, playback probing, network
   mutation, backup, durable job enqueue, or scheduler execution.
 - Queue pressure may expose only grouped kind, status, resource class, counts,
@@ -873,8 +881,12 @@ diagnostics.failure.safe_message = StorageFailureClass::Unknown.safe_message().t
   `details` without requiring Admin Web to call every diagnostic route.
 - Good: `details.durable_jobs.queue_pressure` reuses repository-owned queue
   pressure summaries and never serializes job payloads.
-- Good: `details.media_library_scan.source_hash_overview` exposes aggregate
+- Good: `details.media_library_scan.source_fingerprint_hash` exposes aggregate
   source hash posture, not raw source identities.
+- Good: `details.media_library_scan.intake_action_plan.components` tells Admin
+  Web whether library scan, source hash, or watch-folder evidence needs
+  attention without exposing raw roots, locators, job payloads, hashes, or
+  backend errors.
 - Base: missing runtime facts produce empty, redaction-safe summaries.
 - Bad: computing readiness by parsing rendered Admin Web text or generated
   TypeScript files.
@@ -895,6 +907,9 @@ diagnostics.failure.safe_message = StorageFailureClass::Unknown.safe_message().t
 - Server route tests prove overview and operator-readiness use the same safe
   queue pressure and source hash facts without duplicating unsafe collection
   logic.
+- Server route or helper tests prove Media Library Scan intake action-plan
+  entries are read-only, deterministic, redaction-safe, and preserve component
+  priority for library scan, source hash, and watch-folder evidence.
 - Admin Web check gates must pass after regenerating both Admin contract
   artifacts when the route is consumed by UI code.
 
