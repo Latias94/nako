@@ -1,0 +1,17 @@
+{"file":"CONTEXT.md","reason":"Use Nako domain terms consistently for playback, clients, catalog, and user state."}
+{"file":"docs/architecture/STATE_ACCESS.md","reason":"Current-user preference routes must follow state/access boundaries."}
+{"file":"docs/architecture/PLAYBACK.md","reason":"Playback capability persistence must align with playback decision and profile resolver architecture."}
+{"file":".trellis/spec/guides/index.md","reason":"Shared guide index; this task spans several backend layers."}
+{"file":".trellis/spec/guides/cross-layer-thinking-guide.md","reason":"Feature crosses protocol, API, server, core, and database layers."}
+{"file":".trellis/spec/nako-core/backend/index.md","reason":"Core record and repository contract guidance."}
+{"file":".trellis/spec/nako-db/backend/index.md","reason":"Database adapter spec index for migrations and repository implementation."}
+{"file":".trellis/spec/nako-db/backend/database-guidelines.md","reason":"SQLite/PostgreSQL schema and migration conventions."}
+{"file":".trellis/spec/nako-db/backend/quality-guidelines.md","reason":"Repository contract test and persistence quality expectations."}
+{"file":".trellis/spec/nako-client-protocol/backend/index.md","reason":"Public Client route and DTO inventory conventions."}
+{"file":".trellis/spec/nako-api/backend/index.md","reason":"API DTO/OpenAPI layer conventions."}
+{"file":".trellis/spec/nako-api/backend/admin-and-public-contracts.md","reason":"Public route contract and OpenAPI exposure rules."}
+{"file":".trellis/spec/nako-server/backend/index.md","reason":"Server composition and HTTP boundary spec index."}
+{"file":".trellis/spec/nako-server/backend/http-api-patterns.md","reason":"Authenticated current-user HTTP route patterns and error mapping."}
+{"file":".trellis/spec/nako-server/backend/quality-guidelines.md","reason":"Server test expectations for HTTP and service changes."}
+{"file":".trellis/spec/nako-playback/backend/index.md","reason":"Playback resolver crate boundary and capability rules."}
+{"file":".trellis/spec/nako-playback/backend/quality-guidelines.md","reason":"Capability resolver behavior must remain consistent with playback tests."}

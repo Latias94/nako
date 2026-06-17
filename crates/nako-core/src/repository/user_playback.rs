@@ -3,7 +3,8 @@ use async_trait::async_trait;
 use super::PageRequest;
 use crate::{
     AuthenticatedPrincipal, ManagedArtworkArtifactRecord, MediaItem, MediaItemId, Result,
-    SelectedArtworkRecord, UserPlaybackState, UserPlaybackStateWrite, UserPrincipalId,
+    SelectedArtworkRecord, UserPlaybackProfilePreference, UserPlaybackProfilePreferenceWrite,
+    UserPlaybackState, UserPlaybackStateWrite, UserPrincipalId,
 };
 
 #[derive(Clone, Debug, PartialEq)]
@@ -43,4 +44,22 @@ pub trait UserPlaybackStateRepository: Send + Sync {
         principal: &AuthenticatedPrincipal,
         page: PageRequest,
     ) -> Result<Vec<ContinueWatchingEntry>>;
+}
+
+#[async_trait]
+pub trait UserPlaybackProfilePreferenceRepository: Send + Sync {
+    async fn upsert_user_playback_profile_preference(
+        &self,
+        preference: UserPlaybackProfilePreferenceWrite,
+    ) -> Result<UserPlaybackProfilePreference>;
+
+    async fn get_user_playback_profile_preference(
+        &self,
+        principal_id: &UserPrincipalId,
+    ) -> Result<Option<UserPlaybackProfilePreference>>;
+
+    async fn delete_user_playback_profile_preference(
+        &self,
+        principal_id: &UserPrincipalId,
+    ) -> Result<bool>;
 }

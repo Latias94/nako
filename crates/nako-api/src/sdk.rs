@@ -1044,6 +1044,24 @@ public object NakoPublicClientRequests {
             pathAndQuery = "/users/me/playback-state/items/${encodePathSegment(itemId)}",
         )
 
+    public fun getUserPlaybackProfilePreference(): NakoRequestDescriptor =
+        NakoRequestDescriptor(
+            method = "GET",
+            pathAndQuery = "/users/me/playback-profile",
+        )
+
+    public fun setUserPlaybackProfilePreference(): NakoRequestDescriptor =
+        NakoRequestDescriptor(
+            method = "PUT",
+            pathAndQuery = "/users/me/playback-profile",
+        )
+
+    public fun deleteUserPlaybackProfilePreference(): NakoRequestDescriptor =
+        NakoRequestDescriptor(
+            method = "DELETE",
+            pathAndQuery = "/users/me/playback-profile",
+        )
+
     public fun listContinueWatching(page: PageQuery = PageQuery()): NakoRequestDescriptor =
         NakoRequestDescriptor(
             method = "GET",
@@ -1661,6 +1679,18 @@ export class NakoClient {
     return this.requestJson("GET", `/users/me/playback-state/items/${encodeURIComponent(itemId)}`);
   }
 
+  getUserPlaybackProfilePreference(): Promise<UserPlaybackProfilePreferenceResponse> {
+    return this.requestJson("GET", "/users/me/playback-profile");
+  }
+
+  setUserPlaybackProfilePreference(body: SetUserPlaybackProfilePreferenceRequest): Promise<UserPlaybackProfilePreferenceResponse> {
+    return this.requestJson("PUT", "/users/me/playback-profile", { body });
+  }
+
+  deleteUserPlaybackProfilePreference(): Promise<DeleteUserPlaybackProfilePreferenceResponse> {
+    return this.requestJson("DELETE", "/users/me/playback-profile");
+  }
+
   listContinueWatching(page?: PageQuery): Promise<ContinueWatchingResponse> {
     return this.requestJson("GET", "/users/me/playback-state/continue-watching", { query: page });
   }
@@ -1879,6 +1909,9 @@ mod tests {
             "playOnRenderer(",
             "completeRendererCommand(",
             "getUserPlaybackState(",
+            "getUserPlaybackProfilePreference(",
+            "setUserPlaybackProfilePreference(",
+            "deleteUserPlaybackProfilePreference(",
             "listContinueWatching(",
             "updateUserPlaybackProgress(",
             "setUserWatchedState(",
@@ -2213,6 +2246,12 @@ mod tests {
             "public val preferredAudioLanguages: List<String>",
             "public val preferredSubtitleLanguages: List<String>",
             "public val startPositionMs: Long?",
+            "public data class UserPlaybackProfilePreferenceResponse",
+            "public data class UserPlaybackProfilePreferenceDto",
+            "public data class SetUserPlaybackProfilePreferenceRequest",
+            "public fun getUserPlaybackProfilePreference(): NakoRequestDescriptor",
+            "public fun setUserPlaybackProfilePreference(): NakoRequestDescriptor",
+            "public fun deleteUserPlaybackProfilePreference(): NakoRequestDescriptor",
             "public data class UserPlaybackStateResponse",
             "public data class UserPlaylistResponse",
             "public data class ErrorResponse",

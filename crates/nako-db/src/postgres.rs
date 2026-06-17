@@ -62,6 +62,11 @@ const MIGRATIONS: &[(i64, &str, &str)] = &[
         "watch_folder_source_key_normalization",
         include_str!("../migrations/postgres/0006_watch_folder_source_key_normalization.sql"),
     ),
+    (
+        7,
+        "user_playback_profile_preferences",
+        include_str!("../migrations/postgres/0007_user_playback_profile_preferences.sql"),
+    ),
 ];
 
 #[derive(Clone, Debug)]
@@ -545,5 +550,14 @@ mod tests {
                 .contains("watch_folder_source_key_normalization")
         );
         assert!(migration.2.contains("'watch_folder:' || source_uri"));
+
+        let migration = MIGRATIONS
+            .iter()
+            .find(|(version, _, _)| *version == 7)
+            .expect("PostgreSQL user playback profile preference migration should be registered");
+
+        assert_eq!(migration.1, "user_playback_profile_preferences");
+        assert!(migration.2.contains("user_playback_profile_preferences"));
+        assert!(migration.2.contains("capabilities_json jsonb"));
     }
 }

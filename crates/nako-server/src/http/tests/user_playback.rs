@@ -1,6 +1,106 @@
 use super::*;
 
 #[tokio::test]
+async fn user_playback_profile_preference_routes_resolve_store_read_and_delete() {
+    let (_temp, router, _source, _store) = router_with_hls_source().await;
+    let path = "/users/me/playback-profile";
+
+    let empty = request_json::<nako_api::public_client::UserPlaybackProfilePreferenceResponse>(
+        &router,
+        Method::GET,
+        path,
+    )
+    .await;
+    assert_eq!(empty.preference, None);
+
+    let saved = request_body_json::<
+        nako_api::public_client::UserPlaybackProfilePreferenceResponse,
+        _,
+    >(
+        &router,
+        Method::PUT,
+        path,
+        &nako_api::public_client::SetUserPlaybackProfilePreferenceRequest {
+            direct_play: Some(true),
+            device_family: Some("browser_chromium".to_owned()),
+            profile_version: Some(1),
+            containers: Some(vec!["mp4".to_owned()]),
+            video_codecs: Some(vec!["h264".to_owned()]),
+            audio_codecs: Some(vec!["aac".to_owned()]),
+            hls_variant_policy: Some(nako_api::public_client::ClientHlsVariantPolicy::Adaptive),
+            hls_segment_container: Some(nako_api::public_client::ClientHlsSegmentContainer::Fmp4),
+            ..nako_api::public_client::SetUserPlaybackProfilePreferenceRequest::default()
+        },
+    )
+    .await;
+    let saved_preference = saved.preference.as_ref().expect("preference is saved");
+    assert_eq!(
+        saved_preference.capabilities.device_family.as_deref(),
+        Some("browser_chromium")
+    );
+    assert_eq!(saved_preference.capabilities.profile_version, Some(1));
+    assert!(
+        saved_preference
+            .capabilities
+            .containers
+            .contains(&"mp4".to_owned())
+    );
+    assert_eq!(saved_preference.version, 1);
+
+    let read = request_json::<nako_api::public_client::UserPlaybackProfilePreferenceResponse>(
+        &router,
+        Method::GET,
+        path,
+    )
+    .await;
+    assert_eq!(read, saved);
+    let raw = request_json::<serde_json::Value>(&router, Method::GET, path).await;
+    assert!(raw["preference"].get("principal_id").is_none());
+    assert!(raw["preference"].get("capabilities_json").is_none());
+
+    let deleted = request_json::<
+        nako_api::public_client::DeleteUserPlaybackProfilePreferenceResponse,
+    >(&router, Method::DELETE, path)
+    .await;
+    assert!(deleted.deleted);
+
+    let after_delete =
+        request_json::<nako_api::public_client::UserPlaybackProfilePreferenceResponse>(
+            &router,
+            Method::GET,
+            path,
+        )
+        .await;
+    assert_eq!(after_delete.preference, None);
+}
+
+#[tokio::test]
+async fn user_playback_profile_preference_route_rejects_unknown_hls_fields() {
+    let (_temp, router, _source, _store) = router_with_hls_source().await;
+
+    let response = response_body_json(
+        &router,
+        Method::PUT,
+        "/users/me/playback-profile",
+        &serde_json::json!({
+            "device_family": "browser_chromium",
+            "profile_version": 1,
+            "hls_variant_policy": "future_policy"
+        }),
+    )
+    .await;
+
+    assert_eq!(response.status(), StatusCode::BAD_REQUEST);
+    let error = body_json::<nako_api::public_client::ErrorResponse>(response).await;
+    assert_eq!(error.code, "invalid_input");
+    assert!(
+        error
+            .message
+            .contains("unsupported playback profile preference")
+    );
+}
+
+#[tokio::test]
 async fn user_playback_routes_update_read_and_list_current_principal_state() {
     let (_temp, router, source, _store) = router_with_hls_source().await;
     let item_id = source.item_id;

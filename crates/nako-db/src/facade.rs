@@ -44,6 +44,7 @@ trait DatabaseBackendAdapter:
     + PlaybackSessionRepository
     + RendererSessionRepository
     + TranscodeSessionRepository
+    + UserPlaybackProfilePreferenceRepository
     + UserPlaybackStateRepository
     + UserPlaylistRepository
     + VfsCacheRepository
@@ -92,6 +93,7 @@ impl<T> DatabaseBackendAdapter for T where
         + PlaybackSessionRepository
         + RendererSessionRepository
         + TranscodeSessionRepository
+        + UserPlaybackProfilePreferenceRepository
         + UserPlaybackStateRepository
         + UserPlaylistRepository
         + VfsCacheRepository
@@ -2799,6 +2801,36 @@ impl UserPlaybackStateRepository for NakoDatabase {
     ) -> Result<Vec<ContinueWatchingEntry>> {
         self.backend()
             .list_continue_watching_entries(principal, page)
+            .await
+    }
+}
+
+#[async_trait::async_trait]
+impl UserPlaybackProfilePreferenceRepository for NakoDatabase {
+    async fn upsert_user_playback_profile_preference(
+        &self,
+        preference: UserPlaybackProfilePreferenceWrite,
+    ) -> Result<UserPlaybackProfilePreference> {
+        self.backend()
+            .upsert_user_playback_profile_preference(preference)
+            .await
+    }
+
+    async fn get_user_playback_profile_preference(
+        &self,
+        principal_id: &UserPrincipalId,
+    ) -> Result<Option<UserPlaybackProfilePreference>> {
+        self.backend()
+            .get_user_playback_profile_preference(principal_id)
+            .await
+    }
+
+    async fn delete_user_playback_profile_preference(
+        &self,
+        principal_id: &UserPrincipalId,
+    ) -> Result<bool> {
+        self.backend()
+            .delete_user_playback_profile_preference(principal_id)
             .await
     }
 }

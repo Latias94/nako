@@ -100,12 +100,13 @@ use nako_core::{
     StorageFailureClass, Studio, StudioId, Tag, TagId, TranscodeFailureCategory,
     TranscodeSessionId, TranscodeSessionKind, TranscodeSessionListFilter,
     TranscodeSessionRepository, TranscodeSessionState, User, UserId, UserInvitationId,
-    UserInvitationRecord, UserInvitationStatus, UserPlaybackStateRepository,
-    UserPlaybackStateWrite, UserPlaylistId, UserPlaylistItemRemoval, UserPlaylistItemWrite,
-    UserPlaylistReorder, UserPlaylistRepository, UserPrincipalId, UserRole, UserSessionId,
-    UserSessionRecord, UserStatus, VfsCacheFailureAuthority, VfsCacheOperation, VfsCacheRepository,
-    VfsCachedListing, VfsCachedObject, VfsCachedObjectKind, WebhookDeliveryStatus,
-    WebhookEndpointStatus, WebhookRepository,
+    UserInvitationRecord, UserInvitationStatus, UserPlaybackProfilePreferenceRepository,
+    UserPlaybackProfilePreferenceWrite, UserPlaybackStateRepository, UserPlaybackStateWrite,
+    UserPlaylistId, UserPlaylistItemRemoval, UserPlaylistItemWrite, UserPlaylistReorder,
+    UserPlaylistRepository, UserPrincipalId, UserRole, UserSessionId, UserSessionRecord,
+    UserStatus, VfsCacheFailureAuthority, VfsCacheOperation, VfsCacheRepository, VfsCachedListing,
+    VfsCachedObject, VfsCachedObjectKind, WebhookDeliveryStatus, WebhookEndpointStatus,
+    WebhookRepository,
 };
 use nako_search::{SearchDocument, SearchIndex, SearchQuery};
 
@@ -422,6 +423,7 @@ trait PlaybackRuntimeContractBackend:
     + MediaRepository
     + PlaybackSessionRepository
     + TranscodeSessionRepository
+    + UserPlaybackProfilePreferenceRepository
     + UserPlaybackStateRepository
     + UserPlaylistRepository
 {
@@ -433,6 +435,7 @@ impl<T> PlaybackRuntimeContractBackend for T where
         + MediaRepository
         + PlaybackSessionRepository
         + TranscodeSessionRepository
+        + UserPlaybackProfilePreferenceRepository
         + UserPlaybackStateRepository
         + UserPlaylistRepository
 {
@@ -5355,6 +5358,116 @@ where
             .await
             .unwrap(),
         vec![second_state, updated_first]
+    );
+}
+
+async fn user_playback_profile_preference_crud_contract<S>(store: S)
+where
+    S: PlaybackRuntimeContractBackend,
+{
+    let principal = UserPrincipalId::new("contract-profile-preference").unwrap();
+    let other_principal = UserPrincipalId::new("contract-other-profile-preference").unwrap();
+
+    assert_eq!(
+        store
+            .get_user_playback_profile_preference(&principal)
+            .await
+            .unwrap(),
+        None
+    );
+    assert!(
+        !store
+            .delete_user_playback_profile_preference(&principal)
+            .await
+            .unwrap()
+    );
+
+    let assert_payload = |actual: &str, expected: serde_json::Value| {
+        let actual: serde_json::Value = serde_json::from_str(actual).unwrap();
+        assert_eq!(actual, expected);
+    };
+
+    let first_payload =
+        r#"{"direct_play":true,"containers":["mp4"],"video_codecs":["h264"]}"#.to_owned();
+    let first_expected = serde_json::json!({
+        "direct_play": true,
+        "containers": ["mp4"],
+        "video_codecs": ["h264"]
+    });
+    let first = store
+        .upsert_user_playback_profile_preference(UserPlaybackProfilePreferenceWrite {
+            principal_id: principal.clone(),
+            capabilities_json: first_payload,
+            updated_at_ms: 1_000,
+        })
+        .await
+        .unwrap();
+    assert_eq!(first.principal_id, principal);
+    assert_eq!(first.updated_at_ms, 1_000);
+    assert_eq!(first.version, 1);
+    assert_payload(&first.capabilities_json, first_expected.clone());
+
+    let stored_first = store
+        .get_user_playback_profile_preference(&principal)
+        .await
+        .unwrap()
+        .unwrap();
+    assert_eq!(stored_first.version, 1);
+    assert_payload(&stored_first.capabilities_json, first_expected);
+    assert_eq!(
+        store
+            .get_user_playback_profile_preference(&other_principal)
+            .await
+            .unwrap(),
+        None
+    );
+
+    let second_payload = r#"{"direct_play":false,"containers":["webm"],"audio_codecs":["opus"],"hls_variant_policy":"disabled"}"#.to_owned();
+    let second_expected = serde_json::json!({
+        "direct_play": false,
+        "containers": ["webm"],
+        "audio_codecs": ["opus"],
+        "hls_variant_policy": "disabled"
+    });
+    let second = store
+        .upsert_user_playback_profile_preference(UserPlaybackProfilePreferenceWrite {
+            principal_id: principal.clone(),
+            capabilities_json: second_payload,
+            updated_at_ms: 2_000,
+        })
+        .await
+        .unwrap();
+    assert_eq!(second.updated_at_ms, 2_000);
+    assert_eq!(second.version, 2);
+    assert_payload(&second.capabilities_json, second_expected.clone());
+
+    let stored_second = store
+        .get_user_playback_profile_preference(&principal)
+        .await
+        .unwrap()
+        .unwrap();
+    assert_eq!(stored_second.version, 2);
+    assert_eq!(stored_second.updated_at_ms, 2_000);
+    assert_payload(&stored_second.capabilities_json, second_expected);
+
+    assert!(
+        store
+            .delete_user_playback_profile_preference(&principal)
+            .await
+            .unwrap()
+    );
+    assert_eq!(
+        store
+            .get_user_playback_profile_preference(&principal)
+            .await
+            .unwrap(),
+        None
+    );
+    assert!(
+        !store
+            .delete_user_playback_profile_preference(&principal)
+            .await
+            .unwrap()
     );
 }
 
@@ -12256,6 +12369,16 @@ database_contract_pair!(
         "user_playback_state_is_principal_scoped_and_continue_watching"
     ),
     contract = user_playback_state_is_principal_scoped_and_continue_watching_contract,
+);
+
+database_contract_pair!(
+    sqlite = sqlite_playback_runtime_contract_user_playback_profile_preference_crud,
+    postgres = postgres_playback_runtime_contract_user_playback_profile_preference_crud,
+    case = ContractCase::migrated(
+        ContractFamily::PlaybackRuntime,
+        "user_playback_profile_preference_crud"
+    ),
+    contract = user_playback_profile_preference_crud_contract,
 );
 
 database_contract_pair!(

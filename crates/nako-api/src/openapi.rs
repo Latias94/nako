@@ -597,6 +597,33 @@ fn public_paths() -> Value {
         }),
     );
     paths.insert(
+        "/users/me/playback-profile".to_owned(),
+        json!({
+            "get": json_get(
+                "getUserPlaybackProfilePreference",
+                "Get the current user's persisted playback capability preference.",
+                "user-playback",
+                vec![],
+                schema_ref("UserPlaybackProfilePreferenceResponse")
+            ),
+            "put": json_put(
+                "setUserPlaybackProfilePreference",
+                "Resolve and persist the current user's playback capability preference.",
+                "user-playback",
+                vec![],
+                schema_ref("SetUserPlaybackProfilePreferenceRequest"),
+                schema_ref("UserPlaybackProfilePreferenceResponse")
+            ),
+            "delete": json_delete(
+                "deleteUserPlaybackProfilePreference",
+                "Delete the current user's persisted playback capability preference.",
+                "user-playback",
+                vec![],
+                schema_ref("DeleteUserPlaybackProfilePreferenceResponse")
+            )
+        }),
+    );
+    paths.insert(
         "/users/me/playback-state/items/{item_id}".to_owned(),
         json!({
             "get": json_get(
@@ -1529,6 +1556,17 @@ fn schemas() -> Value {
         "PlaybackProfilePresetsResponse": object_schema(&["presets"], json!({
             "presets": array_schema(schema_ref("PlaybackProfilePresetDto"))
         })),
+        "UserPlaybackProfilePreferenceResponse": object_schema(&["preference"], json!({
+            "preference": nullable_ref("UserPlaybackProfilePreferenceDto")
+        })),
+        "UserPlaybackProfilePreferenceDto": object_schema(&["capabilities", "updated_at", "version"], json!({
+            "capabilities": schema_ref("ClientPlaybackCapabilitiesDto"),
+            "updated_at": string_schema(),
+            "version": integer_schema("int64")
+        })),
+        "DeleteUserPlaybackProfilePreferenceResponse": object_schema(&["deleted"], json!({
+            "deleted": boolean_schema()
+        })),
         "PlaybackProfilePresetDto": object_schema(&[
             "family",
             "device_family",
@@ -1947,6 +1985,22 @@ fn schemas() -> Value {
             "position_ms": json!({"type": "integer", "format": "int64", "nullable": true}),
             "duration_ms": json!({"type": "integer", "format": "int64", "nullable": true}),
             "marked_at": nullable_string_schema()
+        })),
+        "SetUserPlaybackProfilePreferenceRequest": object_schema(&[], json!({
+            "direct_play": boolean_schema(),
+            "device_family": nullable_string_schema(),
+            "profile_version": json!({"type": "integer", "format": "int32", "nullable": true}),
+            "containers": json!({"type": "array", "items": string_schema(), "nullable": true}),
+            "video_codecs": json!({"type": "array", "items": string_schema(), "nullable": true}),
+            "audio_codecs": json!({"type": "array", "items": string_schema(), "nullable": true}),
+            "max_video_bitrate": json!({"type": "integer", "format": "int64", "nullable": true}),
+            "max_width": json!({"type": "integer", "format": "int32", "nullable": true}),
+            "max_height": json!({"type": "integer", "format": "int32", "nullable": true}),
+            "max_audio_channels": json!({"type": "integer", "format": "int32", "nullable": true}),
+            "supports_hdr": boolean_schema(),
+            "supports_subtitles": boolean_schema(),
+            "hls_variant_policy": schema_ref("ClientHlsVariantPolicy"),
+            "hls_segment_container": schema_ref("ClientHlsSegmentContainer")
         })),
         "MediaItemDto": object_schema(&["id", "kind", "parent_id", "metadata"], json!({
             "id": uuid_schema(),
@@ -2953,8 +3007,36 @@ mod tests {
                 ["content"]["application/json"]["schema"]["$ref"],
             "#/components/schemas/SetWatchedStateRequest"
         );
+        assert_eq!(
+            document["paths"]["/users/me/playback-profile"]["get"]["responses"]["200"]["content"]["application/json"]
+                ["schema"]["$ref"],
+            "#/components/schemas/UserPlaybackProfilePreferenceResponse"
+        );
+        assert_eq!(
+            document["paths"]["/users/me/playback-profile"]["put"]["requestBody"]["content"]["application/json"]
+                ["schema"]["$ref"],
+            "#/components/schemas/SetUserPlaybackProfilePreferenceRequest"
+        );
+        assert_eq!(
+            document["paths"]["/users/me/playback-profile"]["delete"]["responses"]["200"]["content"]
+                ["application/json"]["schema"]["$ref"],
+            "#/components/schemas/DeleteUserPlaybackProfilePreferenceResponse"
+        );
         assert!(schemas.contains_key("ContinueWatchingResponse"));
         assert!(schemas.contains_key("UserPlaybackStateDto"));
+        assert!(schemas.contains_key("UserPlaybackProfilePreferenceResponse"));
+        assert_eq!(
+            document["components"]["schemas"]["UserPlaybackProfilePreferenceDto"]["properties"]["capabilities"]
+                ["$ref"],
+            "#/components/schemas/ClientPlaybackCapabilitiesDto"
+        );
+        assert!(
+            document["components"]["schemas"]["SetUserPlaybackProfilePreferenceRequest"]
+                ["properties"]
+                .as_object()
+                .unwrap()
+                .contains_key("containers")
+        );
         assert_eq!(
             document["components"]["schemas"]["ContinueWatchingItemDto"]["properties"]["item"]["$ref"],
             "#/components/schemas/MediaItemDto"

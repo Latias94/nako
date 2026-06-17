@@ -2,8 +2,9 @@ use async_trait::async_trait;
 use nako_core::{
     AuthenticatedPrincipal, ContinueWatchingEntry, IdentityAccessRepository, LibraryAccessLevel,
     LibraryId, MediaItemId, MediaRepository, MediaSource, MediaSourceId, NakoError, PageRequest,
-    Result, UserId, UserPlaybackState, UserPlaybackStateRepository, UserPlaybackStateWrite,
-    UserPrincipalId,
+    Result, UserId, UserPlaybackProfilePreference, UserPlaybackProfilePreferenceRepository,
+    UserPlaybackProfilePreferenceWrite, UserPlaybackState, UserPlaybackStateRepository,
+    UserPlaybackStateWrite, UserPrincipalId,
 };
 use nako_db::NakoDatabase;
 
@@ -42,6 +43,21 @@ pub(crate) trait UserPlaybackStore: Clone + Send + Sync + std::fmt::Debug {
         &self,
         write: UserPlaybackStateWrite,
     ) -> Result<UserPlaybackState>;
+
+    async fn load_user_playback_profile_preference(
+        &self,
+        principal_id: &UserPrincipalId,
+    ) -> Result<Option<UserPlaybackProfilePreference>>;
+
+    async fn store_user_playback_profile_preference(
+        &self,
+        write: UserPlaybackProfilePreferenceWrite,
+    ) -> Result<UserPlaybackProfilePreference>;
+
+    async fn delete_user_playback_profile_preference(
+        &self,
+        principal_id: &UserPrincipalId,
+    ) -> Result<bool>;
 
     async fn list_continue_watching_user_playback_states(
         &self,
@@ -90,6 +106,38 @@ impl UserPlaybackStore for NakoDatabase {
         write: UserPlaybackStateWrite,
     ) -> Result<UserPlaybackState> {
         UserPlaybackStateRepository::upsert_user_playback_state(self, write).await
+    }
+
+    async fn load_user_playback_profile_preference(
+        &self,
+        principal_id: &UserPrincipalId,
+    ) -> Result<Option<UserPlaybackProfilePreference>> {
+        UserPlaybackProfilePreferenceRepository::get_user_playback_profile_preference(
+            self,
+            principal_id,
+        )
+        .await
+    }
+
+    async fn store_user_playback_profile_preference(
+        &self,
+        write: UserPlaybackProfilePreferenceWrite,
+    ) -> Result<UserPlaybackProfilePreference> {
+        UserPlaybackProfilePreferenceRepository::upsert_user_playback_profile_preference(
+            self, write,
+        )
+        .await
+    }
+
+    async fn delete_user_playback_profile_preference(
+        &self,
+        principal_id: &UserPrincipalId,
+    ) -> Result<bool> {
+        UserPlaybackProfilePreferenceRepository::delete_user_playback_profile_preference(
+            self,
+            principal_id,
+        )
+        .await
     }
 
     async fn list_continue_watching_user_playback_states(
@@ -294,6 +342,38 @@ where
                     .map(|_| event_at_ms),
                 updated_at_ms: event_at_ms,
             })
+            .await
+    }
+
+    pub(crate) async fn get_profile_preference(
+        &self,
+        principal: &AuthenticatedPrincipal,
+    ) -> Result<Option<UserPlaybackProfilePreference>> {
+        self.store
+            .load_user_playback_profile_preference(&principal.principal_id)
+            .await
+    }
+
+    pub(crate) async fn set_profile_preference(
+        &self,
+        principal: &AuthenticatedPrincipal,
+        capabilities_json: String,
+    ) -> Result<UserPlaybackProfilePreference> {
+        self.store
+            .store_user_playback_profile_preference(UserPlaybackProfilePreferenceWrite {
+                principal_id: principal.principal_id.clone(),
+                capabilities_json,
+                updated_at_ms: current_time_ms()?,
+            })
+            .await
+    }
+
+    pub(crate) async fn delete_profile_preference(
+        &self,
+        principal: &AuthenticatedPrincipal,
+    ) -> Result<bool> {
+        self.store
+            .delete_user_playback_profile_preference(&principal.principal_id)
             .await
     }
 

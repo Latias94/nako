@@ -233,6 +233,107 @@ WHERE id = normalization.winner_id;
 
 The migration selects and merges a winner before changing the unique key value.
 
+## Scenario: User Playback Profile Preference Persistence
+
+### 1. Scope / Trigger
+
+- Trigger: adding or changing persisted current-user playback profile
+  preferences.
+- Scope: `UserPlaybackProfilePreferenceRepository`,
+  `UserPlaybackProfilePreference`,
+  `UserPlaybackProfilePreferenceWrite`,
+  SQLite/PostgreSQL `user_playback_profile_preferences` migrations,
+  adapter CRUD SQL, `NakoDatabase` facade forwarding, and repository contract
+  tests.
+- Boundary: persistence stores a resolved effective capability payload. It does
+  not resolve playback profiles, read presets, apply playback policies, or
+  manage multiple named device profiles.
+
+### 2. Signatures
+
+- Table: `user_playback_profile_preferences`.
+- Identity: `principal_id` primary key.
+- Columns:
+  `principal_id`, `capabilities_json`, `updated_at_ms`, `version`,
+  `created_at`, and `updated_at`.
+- Repository:
+  `upsert_user_playback_profile_preference(write) ->
+  Result<UserPlaybackProfilePreference>`.
+- Repository:
+  `get_user_playback_profile_preference(principal_id) ->
+  Result<Option<UserPlaybackProfilePreference>>`.
+- Repository:
+  `delete_user_playback_profile_preference(principal_id) -> Result<bool>`.
+
+### 3. Contracts
+
+- `nako-core` records store `capabilities_json: String` so `nako-core` does not
+  depend on `nako-playback` or Public Client protocol DTOs.
+- SQLite stores `capabilities_json` as `TEXT NOT NULL` with `json_valid`.
+  PostgreSQL stores it as `jsonb NOT NULL`; upsert SQL must cast the bound text
+  parameter with `$2::jsonb`.
+- Upsert identity is `principal_id`; replacing a preference increments
+  `version`, updates `updated_at_ms`, and keeps exactly one row for the
+  principal.
+- Delete is idempotent and returns whether a row was removed.
+- Repository methods do not accept arbitrary user ids from HTTP. The server
+  supplies the authenticated principal id after auth resolution.
+- This table is separate from `user_playback_states`; do not widen item
+  progress rows with device/profile preference fields.
+
+### 4. Validation & Error Matrix
+
+| Condition | Required behavior |
+|-----------|-------------------|
+| Missing row | `get` returns `Ok(None)` |
+| `delete` on missing row | Returns `false` |
+| First upsert for a principal | Creates version `1` row |
+| Second upsert for same principal | Replaces JSON, increments version, preserves one row |
+| Upsert for another principal | Does not affect the first principal |
+| SQLite JSON is invalid | Schema rejects the write |
+| PostgreSQL JSON text is bound without `::jsonb` | Treat as adapter bug; live PostgreSQL may fail |
+| Migration file exists but migrator registration is missing | Migration contract failure |
+
+### 5. Good/Base/Bad Cases
+
+- Good: store the resolved capability JSON emitted by the server playback
+  profile resolver and return it unchanged for API mapping.
+- Base: a fresh migrated SQLite store applies the new version and can round
+  trip absent/upsert/replace/delete behavior.
+- Bad: storing unresolved user request JSON and relying on future API code to
+  re-resolve it.
+- Bad: adding a `playback_profile` column to `user_playback_states`.
+
+### 6. Tests Required
+
+- SQLite migration version registration test.
+- PostgreSQL migration registration test.
+- Backend-agnostic repository contract for absent, upsert, replace,
+  other-principal isolation, and delete idempotence.
+- Focused gate:
+  `cargo nextest run -p nako-db user_playback_profile_preference --no-fail-fast`.
+- Compile gate:
+  `cargo check -p nako-db --tests`.
+
+### 7. Wrong vs Correct
+
+#### Wrong
+
+```sql
+INSERT INTO user_playback_profile_preferences (principal_id, capabilities_json)
+VALUES ($1, $2)
+```
+
+#### Correct
+
+```sql
+INSERT INTO user_playback_profile_preferences (principal_id, capabilities_json)
+VALUES ($1, $2::jsonb)
+```
+
+The Postgres adapter binds resolved capabilities as text from the neutral core
+record and explicitly casts it to `jsonb` at the SQL boundary.
+
 ## Scenario: Source Duplicate Relationship Pair Identity
 
 ### 1. Scope / Trigger

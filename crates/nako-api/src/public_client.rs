@@ -4,11 +4,12 @@ use nako_core::{
     LocalMetadataPolicy, LocalMetadataReader, ManagedArtworkArtifactRecord, MediaDomain, MediaItem,
     MediaKind, MediaProbeResult, MediaSource, MediaStreamDisposition, MediaStreamInfo,
     MediaStreamKind, MediaStreamOrigin, MetadataProfile, MetadataRefreshMode, MetadataSource,
-    NamingStrategy, PageRequest, Person, PlaybackSessionMode, PlaybackSessionRecord,
+    NakoError, NamingStrategy, PageRequest, Person, PlaybackSessionMode, PlaybackSessionRecord,
     PlaybackSessionState, RendererCommandRecord, RendererCommandState, RendererControlCapabilities,
-    RendererSessionRecord, RendererSessionState, SelectedArtworkRecord, Tag,
+    RendererSessionRecord, RendererSessionState, Result, SelectedArtworkRecord, Tag,
     TranscodeFailureCategory, TranscodeSessionKind, TranscodeSessionRecord, TranscodeSessionState,
-    UserPlaybackState, UserPlaylistItemRecord, UserPlaylistRecord, UserPlaylistVisibility,
+    UserPlaybackProfilePreference, UserPlaybackState, UserPlaylistItemRecord, UserPlaylistRecord,
+    UserPlaylistVisibility,
 };
 use nako_playback::{
     ClientPlaybackCapabilities, DirectPlayPlan, PlaybackCapabilityEvaluation,
@@ -44,16 +45,16 @@ pub use nako_client_protocol::{
     ClientTranscodePlan, ClientTranscodeSessionKind, ClientTranscodeSessionState,
     ClientUserPlaylistVisibility, ClientWatchStateFilter, CollectionItemDto, CollectionRefDto,
     ContentRatingDto, ContinueWatchingItemDto, ContinueWatchingResponse, CreateUserPlaylistRequest,
-    CreditDto, CurrentUserDto, CurrentUserResponse, ErrorResponse, ExternalIdDto, GenreDto,
-    GenreItemsResponse, GenreListResponse, HealthResponse, ImagesResponse, ItemCreditDto,
-    ItemCreditsResponse, ItemDetailResponse, ItemGenreDto, ItemStudioDto, ItemTagDto,
-    ItemsResponse, LibraryDto, LibraryItemsResponse, LibraryListResponse, LibraryOptionsDto,
-    LibraryResponse, LibraryScanOptionsDto, LibrarySourceResponse, LibrarySourcesResponse,
-    LoginRequest, LoginResponse, LogoutResponse, ManagementContextDto, ManagementContextLinkDto,
-    ManagementContextLinksResponse, MediaItemDto, MediaProbeDto, MediaSourceDto,
-    MediaStreamDispositionDto, MediaStreamDto, MetadataProfileDto, MetadataScanPolicyDto,
-    PLAYBACK_SESSION_ID_HEADER, PageInfo, PeopleResponse, PersonDto, PersonItemsResponse,
-    PersonResponse, PlaybackDecisionResponse, PlaybackProfilePresetDto,
+    CreditDto, CurrentUserDto, CurrentUserResponse, DeleteUserPlaybackProfilePreferenceResponse,
+    ErrorResponse, ExternalIdDto, GenreDto, GenreItemsResponse, GenreListResponse, HealthResponse,
+    ImagesResponse, ItemCreditDto, ItemCreditsResponse, ItemDetailResponse, ItemGenreDto,
+    ItemStudioDto, ItemTagDto, ItemsResponse, LibraryDto, LibraryItemsResponse,
+    LibraryListResponse, LibraryOptionsDto, LibraryResponse, LibraryScanOptionsDto,
+    LibrarySourceResponse, LibrarySourcesResponse, LoginRequest, LoginResponse, LogoutResponse,
+    ManagementContextDto, ManagementContextLinkDto, ManagementContextLinksResponse, MediaItemDto,
+    MediaProbeDto, MediaSourceDto, MediaStreamDispositionDto, MediaStreamDto, MetadataProfileDto,
+    MetadataScanPolicyDto, PLAYBACK_SESSION_ID_HEADER, PageInfo, PeopleResponse, PersonDto,
+    PersonItemsResponse, PersonResponse, PlaybackDecisionResponse, PlaybackProfilePresetDto,
     PlaybackProfilePresetsResponse, PlaybackSessionDto, PlaybackSessionHeartbeatRequest,
     PlaybackSessionResponse, PublicImageRefDto, RedeemInvitationRequest,
     RendererCommandCompletionRequest, RendererCommandDto, RendererCommandPollResponse,
@@ -61,12 +62,13 @@ pub use nako_client_protocol::{
     RendererHeartbeatRequest, RendererPlayCommandRequest, RendererPlayCommandResponse,
     RendererRegistrationRequest, RendererSessionDto, RendererSessionResponse,
     RendererSessionsResponse, RendererTransportMode, RendererTransportUrlKind,
-    ReorderUserPlaylistItemsRequest, SearchItemHit, SearchResponse, SetWatchedStateRequest,
-    SourceProbeResponse, StudioRefDto, TagDto, TagItemsResponse, TagsResponse, TranscodeSessionDto,
+    ReorderUserPlaylistItemsRequest, SearchItemHit, SearchResponse,
+    SetUserPlaybackProfilePreferenceRequest, SetWatchedStateRequest, SourceProbeResponse,
+    StudioRefDto, TagDto, TagItemsResponse, TagsResponse, TranscodeSessionDto,
     TranscodeSessionResponse, UpdatePlaybackProgressRequest, UpdateUserPlaylistRequest,
-    UserPlaybackStateDto, UserPlaybackStateResponse, UserPlaylistDeleteResponse, UserPlaylistDto,
-    UserPlaylistItemDto, UserPlaylistItemsResponse, UserPlaylistResponse, UserPlaylistsResponse,
-    UserSessionDto,
+    UserPlaybackProfilePreferenceDto, UserPlaybackProfilePreferenceResponse, UserPlaybackStateDto,
+    UserPlaybackStateResponse, UserPlaylistDeleteResponse, UserPlaylistDto, UserPlaylistItemDto,
+    UserPlaylistItemsResponse, UserPlaylistResponse, UserPlaylistsResponse, UserSessionDto,
 };
 
 #[must_use]
@@ -508,6 +510,28 @@ pub fn user_playback_state_response_from_state(
     UserPlaybackStateResponse {
         state: user_playback_state_to_dto(state),
     }
+}
+
+pub fn user_playback_profile_preference_response_from_record(
+    preference: Option<UserPlaybackProfilePreference>,
+) -> Result<UserPlaybackProfilePreferenceResponse> {
+    preference
+        .map(|preference| {
+            let capabilities =
+                serde_json::from_str::<ClientPlaybackCapabilities>(&preference.capabilities_json)
+                    .map_err(|err| NakoError::Database {
+                    message: format!("invalid stored playback capability JSON: {err}"),
+                })?;
+
+            Ok(UserPlaybackProfilePreferenceResponse {
+                preference: Some(UserPlaybackProfilePreferenceDto {
+                    capabilities: playback_capabilities_to_dto(capabilities),
+                    updated_at: required_timestamp_ms_to_rfc3339(preference.updated_at_ms),
+                    version: preference.version,
+                }),
+            })
+        })
+        .unwrap_or_else(|| Ok(UserPlaybackProfilePreferenceResponse { preference: None }))
 }
 
 #[must_use]

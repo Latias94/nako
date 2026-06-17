@@ -645,6 +645,10 @@ app.user_playlist()
   - `SetUserWatchedStateRequest`
 - `UserPlaybackAppService::get_state(&AuthenticatedPrincipal, MediaItemId)`
   owns read access for default/current playback state.
+- Current-user playback profile preference handlers use the same
+  `Extension(AuthenticatedPrincipal)` pattern for
+  `GET|PUT|DELETE /users/me/playback-profile`, but they operate on the new
+  playback preference repository contract rather than item state.
 
 ### 3. Contracts
 
@@ -658,6 +662,10 @@ app.user_playlist()
   and preserves source-to-item validation before writing state.
 - Continue-watching list routes continue to use access-aware repository
   projections; do not turn them into route-local filtering loops.
+- `/users/me/playback-profile` is a current-user preference route. The HTTP
+  layer resolves compact preference input through the playback capability
+  resolver, rejects unsupported additive HLS enum variants before storage, and
+  returns a resolved capability DTO. It must not accept or echo `principal_id`.
 
 ### 4. Validation & Error Matrix
 
@@ -673,10 +681,15 @@ app.user_playlist()
 
 - Good: route parses optional `source_id`, then calls
   `app.user_playback().update_progress(AppUpdateUserPlaybackProgressRequest { principal, ... })`.
+- Good: playback profile preference PUT resolves compact inputs, persists only
+  the resolved effective capability JSON, and returns `preference: null` or a
+  resolved preference DTO.
 - Base: continue-watching route calls
   `list_continue_watching_entries(&principal, page)`.
 - Bad: route checks Play access with `require_item_access`, then the app
   service writes user playback state without knowing the caller principal.
+- Bad: HTTP accepts unsupported additive HLS enum variants, stores unresolved
+  preference JSON, or exposes another principal's preference by identifier.
 
 ### 6. Tests Required
 
@@ -684,6 +697,8 @@ app.user_playlist()
 - HTTP route test proving browse-only principals can read state but cannot
   update progress or watched state.
 - Route test preserving source-from-another-item `400 invalid_input` behavior.
+- HTTP route test proving `/users/me/playback-profile` rejects unsupported HLS
+  enum variants and round-trips resolved preference DTOs.
 - Focused gate:
   `cargo nextest run -p nako-server user_playback --no-fail-fast`.
 

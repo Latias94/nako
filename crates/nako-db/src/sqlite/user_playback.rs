@@ -19,6 +19,15 @@ const USER_PLAYBACK_STATE_SELECT: &str = r#"
             FROM user_playback_states
             "#;
 
+const USER_PLAYBACK_PROFILE_PREFERENCE_SELECT: &str = r#"
+            SELECT
+                principal_id,
+                capabilities_json,
+                updated_at_ms,
+                version
+            FROM user_playback_profile_preferences
+            "#;
+
 #[async_trait::async_trait]
 impl UserPlaybackStateRepository for SqliteStore {
     async fn upsert_user_playback_state(
@@ -142,6 +151,76 @@ impl UserPlaybackStateRepository for SqliteStore {
                 item,
             })
             .collect())
+    }
+}
+
+#[async_trait::async_trait]
+impl UserPlaybackProfilePreferenceRepository for SqliteStore {
+    async fn upsert_user_playback_profile_preference(
+        &self,
+        preference: UserPlaybackProfilePreferenceWrite,
+    ) -> Result<UserPlaybackProfilePreference> {
+        sqlx::query(
+            r#"
+            INSERT INTO user_playback_profile_preferences (
+                principal_id,
+                capabilities_json,
+                updated_at_ms
+            )
+            VALUES (?1, ?2, ?3)
+            ON CONFLICT(principal_id) DO UPDATE SET
+                capabilities_json = excluded.capabilities_json,
+                updated_at_ms = excluded.updated_at_ms,
+                version = user_playback_profile_preferences.version + 1,
+                updated_at = strftime('%Y-%m-%dT%H:%M:%fZ', 'now')
+            "#,
+        )
+        .bind(preference.principal_id.as_str())
+        .bind(&preference.capabilities_json)
+        .bind(preference.updated_at_ms)
+        .execute(&self.pool)
+        .await
+        .map_err(database_error)?;
+
+        self.get_user_playback_profile_preference(&preference.principal_id)
+            .await?
+            .ok_or_else(|| NakoError::Database {
+                message: format!(
+                    "user playback profile preference for principal {} was not found after upsert",
+                    preference.principal_id
+                ),
+            })
+    }
+
+    async fn get_user_playback_profile_preference(
+        &self,
+        principal_id: &UserPrincipalId,
+    ) -> Result<Option<UserPlaybackProfilePreference>> {
+        let row = sqlx::query(&format!(
+            "{USER_PLAYBACK_PROFILE_PREFERENCE_SELECT} WHERE principal_id = ?1"
+        ))
+        .bind(principal_id.as_str())
+        .fetch_optional(&self.pool)
+        .await
+        .map_err(database_error)?;
+
+        row.as_ref()
+            .map(row_to_user_playback_profile_preference)
+            .transpose()
+    }
+
+    async fn delete_user_playback_profile_preference(
+        &self,
+        principal_id: &UserPrincipalId,
+    ) -> Result<bool> {
+        let result =
+            sqlx::query("DELETE FROM user_playback_profile_preferences WHERE principal_id = ?1")
+                .bind(principal_id.as_str())
+                .execute(&self.pool)
+                .await
+                .map_err(database_error)?;
+
+        Ok(result.rows_affected() > 0)
     }
 }
 
@@ -386,6 +465,17 @@ fn row_to_user_playback_state(row: &SqliteRow) -> Result<UserPlaybackState> {
         watched: i64_to_bool(row_get(row, "watched")?)?,
         watched_at_ms: row_get(row, "watched_at_ms")?,
         last_played_at_ms: row_get(row, "last_played_at_ms")?,
+        updated_at_ms: row_get(row, "updated_at_ms")?,
+        version: i64_to_u64(row_get(row, "version")?)?,
+    })
+}
+
+fn row_to_user_playback_profile_preference(
+    row: &SqliteRow,
+) -> Result<UserPlaybackProfilePreference> {
+    Ok(UserPlaybackProfilePreference {
+        principal_id: UserPrincipalId::new(row_get::<String>(row, "principal_id")?)?,
+        capabilities_json: row_get(row, "capabilities_json")?,
         updated_at_ms: row_get(row, "updated_at_ms")?,
         version: i64_to_u64(row_get(row, "version")?)?,
     })

@@ -334,6 +334,16 @@ pub const PUBLIC_CLIENT_ROUTES: &[PublicClientRoute] = &[
         rust_sdk_exposure: PublicClientRustSdkExposure::JsonMethod,
     },
     PublicClientRoute {
+        path: "/users/me/playback-profile",
+        methods: &[
+            PublicClientHttpMethod::Get,
+            PublicClientHttpMethod::Put,
+            PublicClientHttpMethod::Delete,
+        ],
+        kind: PublicClientRouteKind::Playback,
+        rust_sdk_exposure: PublicClientRustSdkExposure::JsonMethod,
+    },
+    PublicClientRoute {
         path: "/users/me/playback-state/items/{item_id}",
         methods: &[PublicClientHttpMethod::Get],
         kind: PublicClientRouteKind::Playback,
@@ -573,7 +583,7 @@ mod tests {
     fn public_route_inventory_is_protocol_owned_and_complete() {
         let paths = public_client_paths().collect::<Vec<_>>();
 
-        assert_eq!(paths.len(), 49);
+        assert_eq!(paths.len(), 50);
         assert!(paths.contains(&"/health"));
         assert!(paths.contains(&"/auth/login"));
         assert!(paths.contains(&"/auth/invitations/redeem"));
@@ -597,6 +607,7 @@ mod tests {
         assert!(paths.contains(&"/renderers/{renderer_session_id}/commands/next"));
         assert!(paths.contains(&"/renderers/{renderer_session_id}/commands/play"));
         assert!(paths.contains(&"/renderers/{renderer_session_id}/commands/{command_id}/complete"));
+        assert!(paths.contains(&"/users/me/playback-profile"));
         assert!(paths.contains(&"/users/me/playback-state/items/{item_id}"));
         assert!(paths.contains(&"/users/me/playback-state/continue-watching"));
         assert!(paths.contains(&"/users/me/playback-state/items/{item_id}/progress"));
@@ -641,7 +652,7 @@ mod tests {
 
         let json_count = public_client_json_routes().count();
         let streaming_count = public_client_streaming_routes().count();
-        assert_eq!(json_count, 43);
+        assert_eq!(json_count, 44);
         assert_eq!(streaming_count, 6);
         assert_eq!(json_count + streaming_count, PUBLIC_CLIENT_ROUTES.len());
         let remux_stream = PUBLIC_CLIENT_ROUTES
@@ -676,7 +687,25 @@ mod tests {
                 .filter(|route| route.kind == PublicClientRouteKind::Playback)
                 .all(|route| route.path.starts_with("/sources/")
                     || route.path.starts_with("/playback/")
+                    || route.path == "/users/me/playback-profile"
                     || route.path.starts_with("/users/me/playback-state/"))
+        );
+        let profile_preference = PUBLIC_CLIENT_ROUTES
+            .iter()
+            .find(|route| route.path == "/users/me/playback-profile")
+            .expect("current-user playback profile preference route exists");
+        assert_eq!(profile_preference.kind, PublicClientRouteKind::Playback);
+        assert_eq!(
+            profile_preference.rust_sdk_exposure,
+            PublicClientRustSdkExposure::JsonMethod
+        );
+        assert_eq!(
+            profile_preference
+                .methods
+                .iter()
+                .map(|method| method.as_str())
+                .collect::<Vec<_>>(),
+            vec!["GET", "PUT", "DELETE"]
         );
         let profile_presets = PUBLIC_CLIENT_ROUTES
             .iter()
@@ -1196,6 +1225,50 @@ mod tests {
                 "Public Client playback capability DTO leaked forbidden term: {forbidden}"
             );
         }
+    }
+
+    #[test]
+    fn public_user_playback_profile_preference_uses_compact_request_and_resolved_response() {
+        let request = serde_json::to_value(SetUserPlaybackProfilePreferenceRequest {
+            direct_play: Some(true),
+            device_family: Some("browser_chromium".to_owned()),
+            profile_version: Some(1),
+            containers: Some(vec!["mp4".to_owned()]),
+            video_codecs: Some(vec!["h264".to_owned()]),
+            audio_codecs: Some(vec!["aac".to_owned()]),
+            hls_variant_policy: Some(ClientHlsVariantPolicy::Adaptive),
+            hls_segment_container: Some(ClientHlsSegmentContainer::Fmp4),
+            ..SetUserPlaybackProfilePreferenceRequest::default()
+        })
+        .unwrap();
+        let response = serde_json::to_value(UserPlaybackProfilePreferenceResponse {
+            preference: Some(UserPlaybackProfilePreferenceDto {
+                capabilities: ClientPlaybackCapabilitiesDto {
+                    direct_play: true,
+                    device_family: Some("browser_chromium".to_owned()),
+                    profile_version: Some(1),
+                    containers: vec!["mp4".to_owned()],
+                    video_codecs: vec!["h264".to_owned()],
+                    audio_codecs: vec!["aac".to_owned()],
+                    hls_variant_policy: Some(ClientHlsVariantPolicy::Adaptive),
+                    hls_segment_container: Some(ClientHlsSegmentContainer::Fmp4),
+                    ..ClientPlaybackCapabilitiesDto::default()
+                },
+                updated_at: "2026-06-17T00:00:00Z".to_owned(),
+                version: 1,
+            }),
+        })
+        .unwrap();
+
+        assert_eq!(request["containers"][0], "mp4");
+        assert!(request.get("container").is_none());
+        assert_eq!(request["video_codecs"][0], "h264");
+        assert!(request.get("principal_id").is_none());
+        assert_eq!(
+            response["preference"]["capabilities"]["containers"][0],
+            "mp4"
+        );
+        assert!(response["preference"].get("principal_id").is_none());
     }
 
     #[test]

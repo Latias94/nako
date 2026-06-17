@@ -54,6 +54,13 @@ transport and a reqwest implementation.
   require the server to apply an implicit preset. Browser ticket capability
   helpers preserve additive HLS policy/container enum strings from
   `nako-client-protocol`.
+- Current-user playback profile preference methods must expose
+  `get_user_playback_profile_preference`,
+  `set_user_playback_profile_preference`, and
+  `delete_user_playback_profile_preference` against
+  `/users/me/playback-profile`. Re-export the request, response, preference
+  DTO, and `ClientPlaybackCapabilitiesDto` types from `nako-client-protocol`
+  so Rust SDK callers do not need a second dependency for the method result.
 
 ## Forbidden Patterns
 

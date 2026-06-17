@@ -1084,6 +1084,23 @@ pub struct UserPlaybackStateResponse {
 }
 
 #[derive(Clone, Debug, Deserialize, PartialEq, Serialize)]
+pub struct UserPlaybackProfilePreferenceResponse {
+    pub preference: Option<UserPlaybackProfilePreferenceDto>,
+}
+
+#[derive(Clone, Debug, Deserialize, PartialEq, Serialize)]
+pub struct UserPlaybackProfilePreferenceDto {
+    pub capabilities: ClientPlaybackCapabilitiesDto,
+    pub updated_at: String,
+    pub version: u64,
+}
+
+#[derive(Clone, Copy, Debug, Deserialize, Eq, PartialEq, Serialize)]
+pub struct DeleteUserPlaybackProfilePreferenceResponse {
+    pub deleted: bool,
+}
+
+#[derive(Clone, Debug, Deserialize, PartialEq, Serialize)]
 pub struct ContinueWatchingResponse {
     pub items: Vec<ContinueWatchingItemDto>,
     pub page: PageInfo,
@@ -1199,6 +1216,38 @@ pub struct SetWatchedStateRequest {
     pub position_ms: Option<u64>,
     pub duration_ms: Option<u64>,
     pub marked_at: Option<String>,
+}
+
+#[derive(Clone, Debug, Default, Deserialize, Eq, PartialEq, Serialize)]
+pub struct SetUserPlaybackProfilePreferenceRequest {
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub direct_play: Option<bool>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub device_family: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub profile_version: Option<u32>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub containers: Option<Vec<String>>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub video_codecs: Option<Vec<String>>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub audio_codecs: Option<Vec<String>>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub max_video_bitrate: Option<u64>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub max_width: Option<u32>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub max_height: Option<u32>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub max_audio_channels: Option<u32>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub supports_hdr: Option<bool>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub supports_subtitles: Option<bool>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub hls_variant_policy: Option<ClientHlsVariantPolicy>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub hls_segment_container: Option<ClientHlsSegmentContainer>,
 }
 
 public_string_value! {

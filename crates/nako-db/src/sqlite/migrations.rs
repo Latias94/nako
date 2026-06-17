@@ -32,6 +32,11 @@ const MIGRATIONS: &[(i64, &str, &str)] = &[
         "watch_folder_source_key_normalization",
         include_str!("../../migrations/0006_watch_folder_source_key_normalization.sql"),
     ),
+    (
+        7,
+        "user_playback_profile_preferences",
+        include_str!("../../migrations/0007_user_playback_profile_preferences.sql"),
+    ),
 ];
 
 #[async_trait::async_trait]
@@ -129,6 +134,15 @@ mod tests {
                 .contains("watch_folder_source_key_normalization")
         );
         assert!(migration.2.contains("'watch_folder:' || source_uri"));
+
+        let migration = MIGRATIONS
+            .iter()
+            .find(|(version, _, _)| *version == 7)
+            .expect("SQLite user playback profile preference migration should be registered");
+
+        assert_eq!(migration.1, "user_playback_profile_preferences");
+        assert!(migration.2.contains("user_playback_profile_preferences"));
+        assert!(migration.2.contains("capabilities_json"));
     }
 
     #[tokio::test]
@@ -143,7 +157,7 @@ mod tests {
                 .await
                 .unwrap();
 
-        assert_eq!(applied_versions, vec![1, 2, 3, 4, 5, 6]);
+        assert_eq!(applied_versions, vec![1, 2, 3, 4, 5, 6, 7]);
 
         for table in [
             "users",

@@ -55,9 +55,11 @@ pub use response::{
 };
 pub use user_playback::{
     CoreUserPlaybackItemRequestInput, CoreUserPlaybackItemWriteRequestInput,
-    CoreUserPlaybackPagedRequestInput, build_get_user_playback_state_request,
-    build_list_continue_watching_request, build_set_user_watched_state_request,
-    build_update_user_playback_progress_request,
+    CoreUserPlaybackPagedRequestInput, CoreUserPlaybackProfilePreferenceRequestInput,
+    build_delete_user_playback_profile_preference_request,
+    build_get_user_playback_profile_preference_request, build_get_user_playback_state_request,
+    build_list_continue_watching_request, build_set_user_playback_profile_preference_request,
+    build_set_user_watched_state_request, build_update_user_playback_progress_request,
 };
 
 #[cfg(test)]
@@ -685,6 +687,24 @@ mod tests {
 
     #[test]
     fn user_playback_read_builders_use_stable_paths_pagination_auth_and_redaction() {
+        let profile = build_get_user_playback_profile_preference_request(
+            &CoreUserPlaybackProfilePreferenceRequestInput {
+                base_url: "https://nako.example/api/".to_owned(),
+                access_token: "secret-token".to_owned(),
+                body_utf8: None,
+            },
+        );
+        assert_eq!(profile.request_id, "user_playback.profile_preference");
+        assert_eq!(profile.method, "GET");
+        assert_eq!(
+            profile.url,
+            "https://nako.example/api/users/me/playback-profile"
+        );
+        assert_eq!(
+            profile.headers,
+            vec![CoreHttpHeader::new("Authorization", "Bearer secret-token")]
+        );
+
         let state = build_get_user_playback_state_request(&CoreUserPlaybackItemRequestInput {
             base_url: "https://nako.example/api/".to_owned(),
             access_token: "secret-token".to_owned(),
@@ -761,5 +781,43 @@ mod tests {
             "https://nako.example/api/users/me/playback-state/items/item%201/watched"
         );
         assert_eq!(watched.method, "PUT");
+
+        let preference = build_set_user_playback_profile_preference_request(
+            &CoreUserPlaybackProfilePreferenceRequestInput {
+                base_url: "https://nako.example/api".to_owned(),
+                access_token: "secret-token".to_owned(),
+                body_utf8: Some(r#"{"direct_play":true}"#.to_owned()),
+            },
+        );
+        assert_eq!(
+            preference.request_id,
+            "user_playback.profile_preference.set"
+        );
+        assert_eq!(preference.method, "PUT");
+        assert_eq!(
+            preference.url,
+            "https://nako.example/api/users/me/playback-profile"
+        );
+        assert_eq!(
+            preference.headers,
+            vec![
+                CoreHttpHeader::new("Authorization", "Bearer secret-token"),
+                CoreHttpHeader::new("Content-Type", "application/json"),
+            ]
+        );
+
+        let delete = build_delete_user_playback_profile_preference_request(
+            &CoreUserPlaybackProfilePreferenceRequestInput {
+                base_url: "https://nako.example/api".to_owned(),
+                access_token: "secret-token".to_owned(),
+                body_utf8: None,
+            },
+        );
+        assert_eq!(delete.request_id, "user_playback.profile_preference.delete");
+        assert_eq!(delete.method, "DELETE");
+        assert_eq!(
+            delete.url,
+            "https://nako.example/api/users/me/playback-profile"
+        );
     }
 }

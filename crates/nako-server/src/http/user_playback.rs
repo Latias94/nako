@@ -5,11 +5,18 @@ use axum::{
     routing::{get, put},
 };
 use nako_api::public_client::{
-    ContinueWatchingItemDto, ContinueWatchingResponse, SetWatchedStateRequest,
-    UpdatePlaybackProgressRequest, page_info_from_request, selected_artwork_to_public_image_ref,
-    user_playback_state_response_from_state, user_playback_state_to_dto,
+    ClientHlsSegmentContainer, ClientHlsVariantPolicy, ContinueWatchingItemDto,
+    ContinueWatchingResponse, DeleteUserPlaybackProfilePreferenceResponse,
+    SetUserPlaybackProfilePreferenceRequest, SetWatchedStateRequest, UpdatePlaybackProgressRequest,
+    page_info_from_request, selected_artwork_to_public_image_ref,
+    user_playback_profile_preference_response_from_record, user_playback_state_response_from_state,
+    user_playback_state_to_dto,
 };
 use nako_core::{AuthenticatedPrincipal, MediaItemId, MediaSourceId, NakoError};
+use nako_playback::{
+    ClientPlaybackCapabilities, ClientPlaybackCapabilityRequest, PlaybackHlsSegmentContainer,
+    PlaybackHlsVariantPolicy,
+};
 use time::{OffsetDateTime, format_description::well_known::Rfc3339};
 use tracing::instrument;
 
@@ -26,6 +33,12 @@ use super::{error::ApiResult, query::PageQuery};
 pub(super) fn routes() -> Router<NakoApp> {
     Router::new()
         .route(
+            "/users/me/playback-profile",
+            get(get_user_playback_profile_preference)
+                .put(set_user_playback_profile_preference)
+                .delete(delete_user_playback_profile_preference),
+        )
+        .route(
             "/users/me/playback-state/items/{item_id}",
             get(get_user_playback_state),
         )
@@ -41,6 +54,52 @@ pub(super) fn routes() -> Router<NakoApp> {
             "/users/me/playback-state/items/{item_id}/watched",
             put(set_user_watched_state),
         )
+}
+
+#[instrument(skip(app, principal))]
+async fn get_user_playback_profile_preference(
+    State(app): State<NakoApp>,
+    Extension(principal): Extension<AuthenticatedPrincipal>,
+) -> ApiResult<impl IntoResponse> {
+    Ok(Json(user_playback_profile_preference_response_from_record(
+        app.user_playback()
+            .get_profile_preference(&principal)
+            .await?,
+    )?))
+}
+
+#[instrument(skip(app, principal, request))]
+async fn set_user_playback_profile_preference(
+    State(app): State<NakoApp>,
+    Extension(principal): Extension<AuthenticatedPrincipal>,
+    Json(request): Json<SetUserPlaybackProfilePreferenceRequest>,
+) -> ApiResult<impl IntoResponse> {
+    let capabilities = playback_profile_preference_request_to_client(request)?;
+    let capabilities_json =
+        serde_json::to_string(&capabilities).map_err(|err| NakoError::InvalidInput {
+            message: format!("failed to serialize resolved playback capabilities: {err}"),
+        })?;
+
+    Ok(Json(user_playback_profile_preference_response_from_record(
+        Some(
+            app.user_playback()
+                .set_profile_preference(&principal, capabilities_json)
+                .await?,
+        ),
+    )?))
+}
+
+#[instrument(skip(app, principal))]
+async fn delete_user_playback_profile_preference(
+    State(app): State<NakoApp>,
+    Extension(principal): Extension<AuthenticatedPrincipal>,
+) -> ApiResult<impl IntoResponse> {
+    Ok(Json(DeleteUserPlaybackProfilePreferenceResponse {
+        deleted: app
+            .user_playback()
+            .delete_profile_preference(&principal)
+            .await?,
+    }))
 }
 
 #[instrument(skip(app, principal))]
@@ -143,6 +202,55 @@ fn parse_optional_media_source_id(
                 })
         })
         .transpose()
+}
+
+fn playback_profile_preference_request_to_client(
+    request: SetUserPlaybackProfilePreferenceRequest,
+) -> Result<ClientPlaybackCapabilities, NakoError> {
+    let hls_variant_policy = match request.hls_variant_policy {
+        Some(ClientHlsVariantPolicy::SingleVariant) => {
+            Some(PlaybackHlsVariantPolicy::SingleVariant)
+        }
+        Some(ClientHlsVariantPolicy::Adaptive) => Some(PlaybackHlsVariantPolicy::Adaptive),
+        None => None,
+        Some(ClientHlsVariantPolicy::Other(value)) => {
+            return Err(NakoError::InvalidInput {
+                message: format!(
+                    "unsupported playback profile preference HLS variant policy: {value}"
+                ),
+            });
+        }
+    };
+    let hls_segment_container = match request.hls_segment_container {
+        Some(ClientHlsSegmentContainer::MpegTs) => Some(PlaybackHlsSegmentContainer::MpegTs),
+        Some(ClientHlsSegmentContainer::Fmp4) => Some(PlaybackHlsSegmentContainer::Fmp4),
+        None => None,
+        Some(ClientHlsSegmentContainer::Other(value)) => {
+            return Err(NakoError::InvalidInput {
+                message: format!(
+                    "unsupported playback profile preference HLS segment container: {value}"
+                ),
+            });
+        }
+    };
+
+    Ok(ClientPlaybackCapabilityRequest {
+        direct_play: request.direct_play,
+        device_family: request.device_family,
+        profile_version: request.profile_version,
+        containers: request.containers,
+        video_codecs: request.video_codecs,
+        audio_codecs: request.audio_codecs,
+        max_video_bitrate: request.max_video_bitrate,
+        max_width: request.max_width,
+        max_height: request.max_height,
+        max_audio_channels: request.max_audio_channels,
+        supports_hdr: request.supports_hdr,
+        supports_subtitles: request.supports_subtitles,
+        hls_variant_policy,
+        hls_segment_container,
+    }
+    .resolve())
 }
 
 fn parse_optional_rfc3339_ms(value: Option<&str>) -> Result<Option<i64>, NakoError> {

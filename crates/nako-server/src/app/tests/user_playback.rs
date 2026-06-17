@@ -2,8 +2,8 @@ use tokio::sync::Mutex;
 
 use nako_core::{
     AuthenticatedPrincipal, ContinueWatchingEntry, DatabaseLifecycle, LibraryItemRepository,
-    LibraryItemState, UserPlaybackState, UserPlaybackStateRepository, UserPlaybackStateWrite,
-    UserPrincipalId,
+    LibraryItemState, UserPlaybackProfilePreference, UserPlaybackProfilePreferenceWrite,
+    UserPlaybackState, UserPlaybackStateRepository, UserPlaybackStateWrite, UserPrincipalId,
 };
 
 use super::*;
@@ -517,6 +517,7 @@ struct FakeUserPlaybackStore {
     item: MediaItem,
     source: MediaSource,
     state: Arc<Mutex<Option<UserPlaybackState>>>,
+    profile_preference: Arc<Mutex<Option<UserPlaybackProfilePreference>>>,
 }
 
 impl FakeUserPlaybackStore {
@@ -550,6 +551,7 @@ impl FakeUserPlaybackStore {
             item,
             source,
             state: Arc::new(Mutex::new(None)),
+            profile_preference: Arc::new(Mutex::new(None)),
         }
     }
 }
@@ -585,6 +587,52 @@ impl UserPlaybackStore for FakeUserPlaybackStore {
         };
         *self.state.lock().await = Some(state.clone());
         Ok(state)
+    }
+
+    async fn load_user_playback_profile_preference(
+        &self,
+        principal_id: &UserPrincipalId,
+    ) -> nako_core::Result<Option<UserPlaybackProfilePreference>> {
+        let preference = self.profile_preference.lock().await;
+        Ok(preference
+            .clone()
+            .filter(|preference| preference.principal_id == *principal_id))
+    }
+
+    async fn store_user_playback_profile_preference(
+        &self,
+        write: UserPlaybackProfilePreferenceWrite,
+    ) -> nako_core::Result<UserPlaybackProfilePreference> {
+        let current_version = self
+            .profile_preference
+            .lock()
+            .await
+            .as_ref()
+            .filter(|preference| preference.principal_id == write.principal_id)
+            .map_or(0, |preference| preference.version);
+        let preference = UserPlaybackProfilePreference {
+            principal_id: write.principal_id,
+            capabilities_json: write.capabilities_json,
+            updated_at_ms: write.updated_at_ms,
+            version: current_version + 1,
+        };
+        *self.profile_preference.lock().await = Some(preference.clone());
+        Ok(preference)
+    }
+
+    async fn delete_user_playback_profile_preference(
+        &self,
+        principal_id: &UserPrincipalId,
+    ) -> nako_core::Result<bool> {
+        let mut preference = self.profile_preference.lock().await;
+        if preference
+            .as_ref()
+            .is_some_and(|preference| preference.principal_id == *principal_id)
+        {
+            *preference = None;
+            return Ok(true);
+        }
+        Ok(false)
     }
 
     async fn list_continue_watching_user_playback_states(

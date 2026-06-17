@@ -10,20 +10,23 @@ pub use nako_client_protocol::{
     BrowserPlaybackMode, BrowserPlaybackOutputContainer, BrowserPlaybackTicketRequest,
     BrowserPlaybackTicketResponse, BrowserPlaybackUrlDto, BrowserPlaybackUrlKind,
     CLIENT_PROTOCOL_VERSION as API_VERSION, ClientBrowseSortKey, ClientHlsSegmentContainer,
-    ClientHlsVariantPolicy, ClientOutputContainer, ClientPlaybackProfileFamily, ClientSortOrder,
-    ClientUserPlaylistVisibility, ClientWatchStateFilter, ContinueWatchingResponse,
-    CreateUserPlaylistRequest, CurrentUserResponse, ErrorResponse, GenreItemsResponse,
-    GenreListResponse, HealthResponse, ImagesResponse, ItemCreditsResponse, ItemDetailResponse,
-    ItemsResponse, LibraryItemsResponse, LibraryListResponse, LibraryResponse,
+    ClientHlsVariantPolicy, ClientOutputContainer, ClientPlaybackCapabilitiesDto,
+    ClientPlaybackProfileFamily, ClientSortOrder, ClientUserPlaylistVisibility,
+    ClientWatchStateFilter, ContinueWatchingResponse, CreateUserPlaylistRequest,
+    CurrentUserResponse, DeleteUserPlaybackProfilePreferenceResponse, ErrorResponse,
+    GenreItemsResponse, GenreListResponse, HealthResponse, ImagesResponse, ItemCreditsResponse,
+    ItemDetailResponse, ItemsResponse, LibraryItemsResponse, LibraryListResponse, LibraryResponse,
     LibrarySourcesResponse, LoginRequest, LoginResponse, LogoutResponse,
     PLAYBACK_SESSION_ID_HEADER, PageInfo, PeopleResponse, PersonItemsResponse, PersonResponse,
     PlaybackDecisionResponse, PlaybackProfilePresetDto, PlaybackProfilePresetsResponse,
     PublicClientRustSdkExposure, ReorderUserPlaylistItemsRequest, SearchResponse,
-    SetWatchedStateRequest, SourceProbeResponse, TagItemsResponse, TagsResponse,
-    TranscodeSessionResponse, UpdatePlaybackProgressRequest, UpdateUserPlaylistRequest,
-    UserPlaybackStateResponse, UserPlaylistDeleteResponse, UserPlaylistDto, UserPlaylistItemDto,
-    UserPlaylistItemsResponse, UserPlaylistResponse, UserPlaylistsResponse,
-    public_client_json_routes, public_client_paths, public_client_streaming_routes,
+    SetUserPlaybackProfilePreferenceRequest, SetWatchedStateRequest, SourceProbeResponse,
+    TagItemsResponse, TagsResponse, TranscodeSessionResponse, UpdatePlaybackProgressRequest,
+    UpdateUserPlaylistRequest, UserPlaybackProfilePreferenceDto,
+    UserPlaybackProfilePreferenceResponse, UserPlaybackStateResponse, UserPlaylistDeleteResponse,
+    UserPlaylistDto, UserPlaylistItemDto, UserPlaylistItemsResponse, UserPlaylistResponse,
+    UserPlaylistsResponse, public_client_json_routes, public_client_paths,
+    public_client_streaming_routes,
 };
 use reqwest::{
     Method, StatusCode, Url,
@@ -554,6 +557,43 @@ impl NakoClient {
             true,
         )
         .await
+    }
+
+    /// Get this principal's default playback profile preference.
+    ///
+    /// # Errors
+    ///
+    /// Returns transport, HTTP, version, or decode errors.
+    pub async fn get_user_playback_profile_preference(
+        &self,
+    ) -> Result<UserPlaybackProfilePreferenceResponse, NakoClientError> {
+        self.request_json_no_query(Method::GET, "/users/me/playback-profile", true)
+            .await
+    }
+
+    /// Resolve and persist this principal's default playback profile preference.
+    ///
+    /// # Errors
+    ///
+    /// Returns transport, HTTP, version, encode, or decode errors.
+    pub async fn set_user_playback_profile_preference(
+        &self,
+        request: &SetUserPlaybackProfilePreferenceRequest,
+    ) -> Result<UserPlaybackProfilePreferenceResponse, NakoClientError> {
+        self.request_json_body(Method::PUT, "/users/me/playback-profile", request, true)
+            .await
+    }
+
+    /// Delete this principal's default playback profile preference.
+    ///
+    /// # Errors
+    ///
+    /// Returns transport, HTTP, version, or decode errors.
+    pub async fn delete_user_playback_profile_preference(
+        &self,
+    ) -> Result<DeleteUserPlaybackProfilePreferenceResponse, NakoClientError> {
+        self.request_json_no_query(Method::DELETE, "/users/me/playback-profile", true)
+            .await
     }
 
     /// List this principal's continue-watching items.
@@ -2309,6 +2349,39 @@ mod tests {
         transport.push_json(
             StatusCode::OK,
             json!({
+                "preference": null
+            }),
+        );
+        transport.push_json(
+            StatusCode::OK,
+            json!({
+                "preference": {
+                    "capabilities": {
+                        "direct_play": true,
+                        "device_family": "browser_chromium",
+                        "profile_version": 1,
+                        "containers": ["mp4"],
+                        "video_codecs": ["h264"],
+                        "audio_codecs": ["aac"],
+                        "supports_hdr": false,
+                        "supports_subtitles": true,
+                        "hls_variant_policy": "adaptive",
+                        "hls_segment_container": "fmp4"
+                    },
+                    "updated_at": "2026-06-17T00:00:00Z",
+                    "version": 1
+                }
+            }),
+        );
+        transport.push_json(
+            StatusCode::OK,
+            json!({
+                "deleted": true
+            }),
+        );
+        transport.push_json(
+            StatusCode::OK,
+            json!({
                 "state": {
                     "item_id": "item 1",
                     "source_id": "source 1",
@@ -2368,6 +2441,25 @@ mod tests {
             .unwrap()
             .bearer_token("secret");
 
+        let profile = client.get_user_playback_profile_preference().await.unwrap();
+        let saved_profile = client
+            .set_user_playback_profile_preference(&SetUserPlaybackProfilePreferenceRequest {
+                direct_play: Some(true),
+                device_family: Some("browser_chromium".to_owned()),
+                profile_version: Some(1),
+                containers: Some(vec!["mp4".to_owned()]),
+                video_codecs: Some(vec!["h264".to_owned()]),
+                audio_codecs: Some(vec!["aac".to_owned()]),
+                hls_variant_policy: Some(ClientHlsVariantPolicy::Adaptive),
+                hls_segment_container: Some(ClientHlsSegmentContainer::Fmp4),
+                ..SetUserPlaybackProfilePreferenceRequest::default()
+            })
+            .await
+            .unwrap();
+        let deleted_profile = client
+            .delete_user_playback_profile_preference()
+            .await
+            .unwrap();
         let state = client.get_user_playback_state("item 1").await.unwrap();
         let list = client
             .list_continue_watching(Some(PageQuery::new(Some(10), Some(20))))
@@ -2399,6 +2491,18 @@ mod tests {
             .await
             .unwrap();
 
+        assert_eq!(profile.preference, None);
+        assert_eq!(
+            saved_profile
+                .preference
+                .as_ref()
+                .unwrap()
+                .capabilities
+                .device_family
+                .as_deref(),
+            Some("browser_chromium")
+        );
+        assert!(deleted_profile.deleted);
         assert_eq!(state.state.progress_percent, Some(0.2));
         assert_eq!(list.page, PageInfo::new(10, 20, 0));
         assert_eq!(progress.state.resume_position_ms, Some(120_000));
@@ -2406,31 +2510,58 @@ mod tests {
         let requests = transport.requests();
         assert_eq!(
             requests[0].url.as_str(),
-            "http://localhost:3000/users/me/playback-state/items/item%201"
+            "http://localhost:3000/users/me/playback-profile"
         );
         assert_eq!(
             requests[1].url.as_str(),
-            "http://localhost:3000/users/me/playback-state/continue-watching?limit=10&offset=20"
+            "http://localhost:3000/users/me/playback-profile"
         );
         assert_eq!(
             requests[2].url.as_str(),
-            "http://localhost:3000/users/me/playback-state/items/item%201/progress"
+            "http://localhost:3000/users/me/playback-profile"
         );
         assert_eq!(
             requests[3].url.as_str(),
+            "http://localhost:3000/users/me/playback-state/items/item%201"
+        );
+        assert_eq!(
+            requests[4].url.as_str(),
+            "http://localhost:3000/users/me/playback-state/continue-watching?limit=10&offset=20"
+        );
+        assert_eq!(
+            requests[5].url.as_str(),
+            "http://localhost:3000/users/me/playback-state/items/item%201/progress"
+        );
+        assert_eq!(
+            requests[6].url.as_str(),
             "http://localhost:3000/users/me/playback-state/items/item%201/watched"
         );
-        assert_eq!(requests[2].method, Method::PUT);
-        assert_eq!(requests[3].method, Method::PUT);
+        assert_eq!(requests[0].method, Method::GET);
+        assert_eq!(requests[1].method, Method::PUT);
+        assert_eq!(requests[2].method, Method::DELETE);
+        assert_eq!(requests[5].method, Method::PUT);
+        assert_eq!(requests[6].method, Method::PUT);
         assert_eq!(
-            requests[2]
+            requests[1]
                 .headers
                 .get(reqwest::header::CONTENT_TYPE)
                 .unwrap(),
             HeaderValue::from_static("application/json")
         );
         assert_eq!(
-            serde_json::from_slice::<serde_json::Value>(&requests[2].body).unwrap()["position_ms"],
+            requests[5]
+                .headers
+                .get(reqwest::header::CONTENT_TYPE)
+                .unwrap(),
+            HeaderValue::from_static("application/json")
+        );
+        assert_eq!(
+            serde_json::from_slice::<serde_json::Value>(&requests[1].body).unwrap()["containers"]
+                [0],
+            "mp4"
+        );
+        assert_eq!(
+            serde_json::from_slice::<serde_json::Value>(&requests[5].body).unwrap()["position_ms"],
             120_000
         );
     }

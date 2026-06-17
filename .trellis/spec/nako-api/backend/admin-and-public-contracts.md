@@ -422,6 +422,108 @@ PublicClientRoute {
 The correct route belongs to the Admin API inventory and must be paired with
 Public Client exclusion tests.
 
+## Scenario: Public Client Current-User Playback Profile Preference
+
+### 1. Scope / Trigger
+
+- Trigger: adding or changing the Public Client current-user playback profile
+  preference API.
+- Scope: `nako-api::public_client` DTO re-exports and mapping helpers,
+  OpenAPI route/schema generation, TypeScript/Kotlin SDK generation,
+  `sdk/typescript/src/index.ts`,
+  `sdk/kotlin/src/main/kotlin/dev/nako/sdk/NakoClientSdk.kt`, and Public Client
+  route inventory tests.
+- Boundary: this is a Public Client current-user preference route, not Admin
+  playback policy management and not playback session runtime diagnostics.
+
+### 2. Signatures
+
+- OpenAPI path: `/users/me/playback-profile`.
+- Methods:
+  - `GET` operation id `getUserPlaybackProfilePreference`
+  - `PUT` operation id `setUserPlaybackProfilePreference`
+  - `DELETE` operation id `deleteUserPlaybackProfilePreference`
+- Request schema:
+  `SetUserPlaybackProfilePreferenceRequest`.
+- Response schemas:
+  `UserPlaybackProfilePreferenceResponse`,
+  `UserPlaybackProfilePreferenceDto`, and
+  `DeleteUserPlaybackProfilePreferenceResponse`.
+- Mapping helper:
+  `user_playback_profile_preference_response_from_record(...) ->
+  Result<UserPlaybackProfilePreferenceResponse>`.
+
+### 3. Contracts
+
+- The route must stay in Public Client OpenAPI/SDK outputs and out of Admin
+  route contracts.
+- All route paths use `/users/me`; neither schemas nor generated SDK methods
+  accept arbitrary user/principal IDs.
+- API mapping reads stored resolved capability JSON and projects it into
+  `ClientPlaybackCapabilitiesDto`. Do not return repository rows directly.
+- The PUT schema describes compact preference input with plural capability set
+  fields. The response schema describes the resolved effective capability DTO.
+- Generated TypeScript and Kotlin SDK package artifacts must be regenerated
+  from `nako-api`; do not hand-edit them to satisfy package-entry tests.
+- Public output must remain redaction-safe: no local path, source locator,
+  bearer token, FFmpeg command/runtime fact, hardware probe fact, operator
+  policy row, or raw transcode internals.
+
+### 4. Validation & Error Matrix
+
+| Condition | Required behavior |
+|-----------|-------------------|
+| No stored preference | Response schema allows `preference: null` |
+| Stored resolved JSON parses | Response contains `capabilities`, `updated_at`, and `version` |
+| Stored resolved JSON is invalid | Mapping returns an API error instead of silently emitting partial data |
+| Public OpenAPI omits any GET/PUT/DELETE method | Contract test fails |
+| Generated SDK package omits methods or DTOs | Package-entry test fails |
+| Any schema contains principal id, source locator, path, token, FFmpeg, runtime, or policy fields | Contract violation |
+
+### 5. Good / Base / Bad Cases
+
+- Good: OpenAPI, TypeScript SDK, Kotlin SDK, Rust client protocol, and server
+  route tests all agree on `/users/me/playback-profile`.
+- Base: a missing row maps to `UserPlaybackProfilePreferenceResponse {
+  preference: None }`.
+- Bad: generating a public method such as
+  `getUserPlaybackProfilePreference(userId)` or exposing the stored repository
+  `capabilities_json` string directly.
+
+### 6. Tests Required
+
+- Public OpenAPI route/schema test for `/users/me/playback-profile`.
+- SDK generator tests proving TypeScript and Kotlin package entries contain the
+  three methods and DTOs.
+- Public/Admin separation tests continue to reject Admin route leakage.
+- Server route tests cover HTTP behavior; DB contract tests cover persistence.
+
+### 7. Wrong vs Correct
+
+#### Wrong
+
+```rust
+Ok(UserPlaybackProfilePreferenceResponse {
+    preference: row.map(|row| row.capabilities_json),
+})
+```
+
+#### Correct
+
+```rust
+let capabilities = serde_json::from_str(&row.capabilities_json)?;
+Ok(UserPlaybackProfilePreferenceResponse {
+    preference: Some(UserPlaybackProfilePreferenceDto {
+        capabilities: client_playback_capabilities_to_dto(capabilities),
+        updated_at: row.updated_at_ms,
+        version: row.version,
+    }),
+})
+```
+
+The API layer owns the stable wire projection. Persistence JSON is an internal
+storage detail.
+
 ## Scenario: Admin VFS Cache Repair Preview, Plan, Targets, And Refresh
 
 ### 1. Scope / Trigger

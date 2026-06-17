@@ -52,6 +52,7 @@ export const NAKO_PUBLIC_PATHS = [
   "/renderers/{renderer_session_id}/commands/next",
   "/renderers/{renderer_session_id}/commands/play",
   "/renderers/{renderer_session_id}/commands/{command_id}/complete",
+  "/users/me/playback-profile",
   "/users/me/playback-state/items/{item_id}",
   "/users/me/playback-state/continue-watching",
   "/users/me/playback-state/items/{item_id}/progress",
@@ -282,6 +283,10 @@ export interface CurrentUserDto {
 
 export interface CurrentUserResponse {
   user: CurrentUserDto;
+}
+
+export interface DeleteUserPlaybackProfilePreferenceResponse {
+  deleted: boolean;
 }
 
 export interface ErrorResponse {
@@ -731,6 +736,23 @@ export interface SearchResponse {
   page: PageInfo;
 }
 
+export interface SetUserPlaybackProfilePreferenceRequest {
+  audio_codecs?: Array<string> | null;
+  containers?: Array<string> | null;
+  device_family?: string | null;
+  direct_play?: boolean;
+  hls_segment_container?: ClientHlsSegmentContainer;
+  hls_variant_policy?: ClientHlsVariantPolicy;
+  max_audio_channels?: number | null;
+  max_height?: number | null;
+  max_video_bitrate?: number | null;
+  max_width?: number | null;
+  profile_version?: number | null;
+  supports_hdr?: boolean;
+  supports_subtitles?: boolean;
+  video_codecs?: Array<string> | null;
+}
+
 export interface SetWatchedStateRequest {
   duration_ms?: number | null;
   marked_at?: string | null;
@@ -794,6 +816,16 @@ export interface UpdatePlaybackProgressRequest {
 export interface UpdateUserPlaylistRequest {
   expected_version?: number;
   name: string;
+}
+
+export interface UserPlaybackProfilePreferenceDto {
+  capabilities: ClientPlaybackCapabilitiesDto;
+  updated_at: string;
+  version: number;
+}
+
+export interface UserPlaybackProfilePreferenceResponse {
+  preference: UserPlaybackProfilePreferenceDto | null;
 }
 
 export interface UserPlaybackStateDto {
@@ -1155,6 +1187,18 @@ export class NakoClient {
 
   getUserPlaybackState(itemId: string): Promise<UserPlaybackStateResponse> {
     return this.requestJson("GET", `/users/me/playback-state/items/${encodeURIComponent(itemId)}`);
+  }
+
+  getUserPlaybackProfilePreference(): Promise<UserPlaybackProfilePreferenceResponse> {
+    return this.requestJson("GET", "/users/me/playback-profile");
+  }
+
+  setUserPlaybackProfilePreference(body: SetUserPlaybackProfilePreferenceRequest): Promise<UserPlaybackProfilePreferenceResponse> {
+    return this.requestJson("PUT", "/users/me/playback-profile", { body });
+  }
+
+  deleteUserPlaybackProfilePreference(): Promise<DeleteUserPlaybackProfilePreferenceResponse> {
+    return this.requestJson("DELETE", "/users/me/playback-profile");
   }
 
   listContinueWatching(page?: PageQuery): Promise<ContinueWatchingResponse> {

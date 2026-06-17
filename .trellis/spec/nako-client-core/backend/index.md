@@ -54,6 +54,12 @@ It performs no network IO and has no runtime dependency on reqwest.
   `CorePlaybackCapabilities` without adding server/playback dependencies.
   Unknown additive HLS policy/container wire values are omitted from core
   capability fields because core enums only model known request facts.
+- Current-user playback profile preference builders must use the stable JSON
+  route `/users/me/playback-profile` with request IDs
+  `user_playback.profile_preference`,
+  `user_playback.profile_preference.set`, and
+  `user_playback.profile_preference.delete`. They require bearer auth, do not
+  add query parameters, and leave the PUT body as caller-owned JSON.
 
 ## Forbidden Patterns
 

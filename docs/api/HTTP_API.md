@@ -84,6 +84,9 @@ GET  /users/me/playlists/{playlist_id}/items?limit=50&offset=0
 PUT  /users/me/playlists/{playlist_id}/items/{item_id}
 DELETE /users/me/playlists/{playlist_id}/items/{item_id}
 PUT  /users/me/playlists/{playlist_id}/items/reorder
+GET  /users/me/playback-profile
+PUT  /users/me/playback-profile
+DELETE /users/me/playback-profile
 GET  /users/me/playback-state/items/{item_id}
 GET  /users/me/playback-state/continue-watching?limit=50&offset=0
 PUT  /users/me/playback-state/items/{item_id}/progress
@@ -129,8 +132,8 @@ The generated scaffold includes:
 - exported TypeScript interfaces for the public OpenAPI schemas;
 - `NakoClient` methods for health, library, catalog/search, source probe,
   library-scoped browse, playback decision, direct stream, remux stream, HLS
-  playlist/segment, playback session routes, User Playlist routes, and User
-  Playback State routes;
+  playlist/segment, playback session routes, User Playlist routes, User
+  Playback Profile Preference routes, and User Playback State routes;
 - bearer token injection through `Authorization: Bearer <token>`;
 - `x-nako-api-version` response inspection;
 - `ErrorResponse` parsing into `NakoApiError`;
@@ -188,6 +191,8 @@ The SDK provides:
 - JSON methods for health, libraries, catalog items/search, source probe,
   library-scoped browse, playback decision, playback session inspection, and
   playback session cancellation;
+- JSON methods for User Playback Profile Preference read, write, and delete
+  under `/users/me/playback-profile`;
 - JSON methods for User Playback State lookup, Continue Watching, progress
   reporting, and watched-state updates under `/users/me`.
 
@@ -336,11 +341,93 @@ When `expected_version` is supplied and stale, implementations return
 `409 conflict`. User Playlist mutations do not write Canonical Metadata, Media
 Sources, NFO sidecars, or Library Files.
 
-## User Playback State
+## User Playback
 
-User Playback State is server-authoritative and scoped to the authenticated
-current user. Public client routes always use `/users/me`; they never expose
-internal principal IDs.
+User Playback current-user state is server-authoritative and scoped to the
+authenticated current user. Public client routes always use `/users/me`; they
+never expose internal principal IDs.
+
+`/users/me/playback-profile` stores one default playback profile preference
+for the current principal. The server resolves compact profile input through
+the same playback capability resolver used by playback decisions, persists the
+resolved effective capability payload, and returns that resolved payload to
+clients. It does not store item progress and it does not apply Admin playback
+policy.
+
+```http
+GET /users/me/playback-profile
+```
+
+When no preference exists, the response is:
+
+```json
+{
+  "preference": null
+}
+```
+
+```http
+PUT /users/me/playback-profile
+Content-Type: application/json
+```
+
+```json
+{
+  "device_family": "browser_chromium",
+  "profile_version": 1,
+  "containers": ["mp4", "webm"],
+  "video_codecs": ["h264", "vp9"],
+  "audio_codecs": ["aac", "opus"],
+  "supports_hdr": false,
+  "supports_subtitles": true,
+  "hls_variant_policy": "adaptive",
+  "hls_segment_container": "fmp4"
+}
+```
+
+The PUT response contains resolved effective capabilities:
+
+```json
+{
+  "preference": {
+    "capabilities": {
+      "direct_play": true,
+      "device_family": "browser_chromium",
+      "profile_version": 1,
+      "containers": ["mp4", "webm"],
+      "video_codecs": ["h264", "vp9"],
+      "audio_codecs": ["aac", "opus"],
+      "max_video_bitrate": null,
+      "max_width": null,
+      "max_height": null,
+      "max_audio_channels": null,
+      "supports_hdr": false,
+      "supports_subtitles": true,
+      "hls_variant_policy": "adaptive",
+      "hls_segment_container": "fmp4"
+    },
+    "updated_at": "2026-06-17T00:00:00Z",
+    "version": 1
+  }
+}
+```
+
+```http
+DELETE /users/me/playback-profile
+```
+
+```json
+{
+  "deleted": true
+}
+```
+
+Unsupported additive HLS enum values are rejected at the HTTP boundary instead
+of being stored. Unknown device families and profile-version mismatches use the
+same safe resolver fallback behavior as playback decision requests.
+
+User Playback State records item progress and watched state for the same
+current-user namespace.
 
 ```http
 GET /users/me/playback-state/items/{item_id}

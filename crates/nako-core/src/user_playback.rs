@@ -98,3 +98,18 @@ pub struct UserPlaybackStateWrite {
     pub last_played_at_ms: Option<i64>,
     pub updated_at_ms: i64,
 }
+
+#[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
+pub struct UserPlaybackProfilePreference {
+    pub principal_id: UserPrincipalId,
+    pub capabilities_json: String,
+    pub updated_at_ms: i64,
+    pub version: u64,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
+pub struct UserPlaybackProfilePreferenceWrite {
+    pub principal_id: UserPrincipalId,
+    pub capabilities_json: String,
+    pub updated_at_ms: i64,
+}
