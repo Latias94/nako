@@ -5,7 +5,7 @@ use nako_core::{
     TranscodeSessionKind, TranscodeSessionRecord, TranscodeSessionState,
 };
 
-use super::{PlaybackAppService, PlaybackRuntimeStore, StartPlaybackSessionRequest, path_exists};
+use super::{PlaybackAppService, PlaybackRuntimeStore, path_exists};
 
 #[derive(Clone, Copy, Debug)]
 pub(super) struct TranscodeRuntimeSessionKey<'a> {
@@ -85,15 +85,6 @@ pub(super) async fn find_finished_runtime_session_with_output(
     }
 
     Ok(None)
-}
-
-pub(super) async fn start_linked_playback_session(
-    app: &PlaybackAppService,
-    request: StartPlaybackSessionRequest,
-    transcode_session_id: TranscodeSessionId,
-) -> Result<PlaybackSessionRecord> {
-    let playback_session = app.start_playback_session(request).await?;
-    link_playback_session_to_transcode(app, playback_session.id, transcode_session_id).await
 }
 
 pub(super) async fn link_playback_session_to_transcode(

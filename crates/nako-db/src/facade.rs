@@ -2539,6 +2539,15 @@ impl PlaybackSessionRepository for NakoDatabase {
         self.backend().create_playback_session(session).await
     }
 
+    async fn create_playback_session_with_admission(
+        &self,
+        request: PlaybackSessionAdmissionCreate,
+    ) -> Result<PlaybackSessionRecord> {
+        self.backend()
+            .create_playback_session_with_admission(request)
+            .await
+    }
+
     async fn get_playback_session(
         &self,
         id: PlaybackSessionId,

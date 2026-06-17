@@ -12,11 +12,24 @@ pub struct PlaybackSessionListFilter {
     pub state: Option<PlaybackSessionState>,
 }
 
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct PlaybackSessionAdmissionCreate {
+    pub session: NewPlaybackSession,
+    pub active_session_limit: u64,
+    pub stale_before_ms: i64,
+    pub ended_at_ms: i64,
+}
+
 #[async_trait]
 pub trait PlaybackSessionRepository: Send + Sync {
     async fn create_playback_session(
         &self,
         session: NewPlaybackSession,
+    ) -> Result<PlaybackSessionRecord>;
+
+    async fn create_playback_session_with_admission(
+        &self,
+        request: PlaybackSessionAdmissionCreate,
     ) -> Result<PlaybackSessionRecord>;
 
     async fn get_playback_session(

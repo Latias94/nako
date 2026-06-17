@@ -1,0 +1,13 @@
+{"file":"docs/architecture/STATE_ACCESS.md","reason":"Check status/follow-on claims after strict reservation work."}
+{"file":"docs/architecture/PLAYBACK.md","reason":"Check playback runtime flow claims and downstream work ordering."}
+{"file":"docs/architecture/CONTROL_PLANE.md","reason":"Check control-plane boundary and durable admission placement."}
+{"file":"docs/adr/0039-playback-policy-and-renderer-target-boundary.md","reason":"Check policy vs runtime admission semantics."}
+{"file":"docs/adr/0053-application-control-plane-boundary.md","reason":"Check runtime control-plane alignment."}
+{"file":".trellis/spec/nako-server/backend/index.md","reason":"Check relevant server guideline coverage."}
+{"file":".trellis/spec/nako-server/backend/quality-guidelines.md","reason":"Check playback admission scenario and tests."}
+{"file":".trellis/spec/nako-server/backend/error-handling.md","reason":"Check errors remain typed and safe."}
+{"file":".trellis/spec/nako-server/backend/database-guidelines.md","reason":"Check no server SQL and repository-owned persistence."}
+{"file":".trellis/spec/nako-db/backend/index.md","reason":"Check relevant DB guideline coverage."}
+{"file":".trellis/spec/nako-db/backend/database-guidelines.md","reason":"Check SQL transaction and adapter parity."}
+{"file":".trellis/spec/nako-db/backend/quality-guidelines.md","reason":"Check contract-test requirements."}
+{"file":".trellis/tasks/06-18-playback-session-strict-reservation/research/playback-session-reservation-seams.md","reason":"Check implementation matches chosen seam and documented risks."}

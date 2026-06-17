@@ -33,7 +33,6 @@ use super::{
         find_finished_runtime_session_with_output, find_latest_runtime_session,
         get_bound_transcode_session, link_playback_session_to_transcode,
         missing_finished_output_error, missing_playback_transcode_error,
-        start_linked_playback_session,
     },
     selection::hls_runtime_plan_request,
     staging_policy::HlsStagingPolicy,
@@ -158,7 +157,18 @@ pub(super) async fn hls_playlist_playback(
     let effective_policy = app
         .admit_playback_session_start(&request.principal, &source, None)
         .await?;
-    let playlist = hls_playlist_with_policy(
+    let mut playback_session = app
+        .create_playback_session_after_admission(
+            StartPlaybackSessionRequest {
+                principal: request.principal,
+                source_id: request.source_id,
+                mode: PlaybackSessionMode::Hls,
+                client: Some(request.client.clone()),
+            },
+            source,
+        )
+        .await?;
+    let playlist = match hls_playlist_with_policy(
         app,
         HlsSourceRequest {
             source_id: request.source_id,
@@ -169,32 +179,54 @@ pub(super) async fn hls_playlist_playback(
         effective_policy,
         request.trace_context.clone(),
     )
-    .await?;
-    let playback_session = start_linked_playback_session(
-        app,
-        StartPlaybackSessionRequest {
-            principal: request.principal,
-            source_id: request.source_id,
-            mode: PlaybackSessionMode::Hls,
-            client: Some(request.client.clone()),
-        },
-        playlist.session.id,
-    )
-    .await?;
-    app.cancel_superseded_hls_playback_sessions(
-        request.source_id,
-        playlist.session.id,
-        playback_session.id,
-    )
-    .await?;
-    let body = app
+    .await
+    {
+        Ok(playlist) => playlist,
+        Err(error) => {
+            app.mark_playback_session_failed_after_start_error(playback_session.id)
+                .await;
+            return Err(error);
+        }
+    };
+    playback_session =
+        match link_playback_session_to_transcode(app, playback_session.id, playlist.session.id)
+            .await
+        {
+            Ok(playback_session) => playback_session,
+            Err(error) => {
+                app.mark_playback_session_failed_after_start_error(playback_session.id)
+                    .await;
+                return Err(error);
+            }
+        };
+    if let Err(error) = app
+        .cancel_superseded_hls_playback_sessions(
+            request.source_id,
+            playlist.session.id,
+            playback_session.id,
+        )
+        .await
+    {
+        app.mark_playback_session_failed_after_start_error(playback_session.id)
+            .await;
+        return Err(error);
+    }
+    let body = match app
         .hls_artifacts
         .read_playback_playlist(
             &playlist.session,
             playback_session.id,
             request.transport_query.as_deref(),
         )
-        .await?;
+        .await
+    {
+        Ok(body) => body,
+        Err(error) => {
+            app.mark_playback_session_failed_after_start_error(playback_session.id)
+                .await;
+            return Err(error);
+        }
+    };
 
     Ok(HlsPlaylistPlaybackOutput {
         session: playback_session,
@@ -222,7 +254,7 @@ pub(super) async fn hls_playlist_for_playback_session(
         let effective_policy = app
             .effective_playback_policy_for_playable_source_id(&request.principal, request.source_id)
             .await?;
-        let playlist = hls_playlist_with_policy(
+        let playlist = match hls_playlist_with_policy(
             app,
             HlsSourceRequest {
                 source_id: request.source_id,
@@ -233,25 +265,54 @@ pub(super) async fn hls_playlist_for_playback_session(
             effective_policy,
             request.trace_context.clone(),
         )
-        .await?;
+        .await
+        {
+            Ok(playlist) => playlist,
+            Err(error) => {
+                app.mark_playback_session_failed_after_start_error(playback_session.id)
+                    .await;
+                return Err(error);
+            }
+        };
         playback_session =
-            link_playback_session_to_transcode(app, playback_session.id, playlist.session.id)
-                .await?;
-        app.cancel_superseded_hls_playback_sessions(
-            request.source_id,
-            playlist.session.id,
-            playback_session.id,
-        )
-        .await?;
-        let body = app
+            match link_playback_session_to_transcode(app, playback_session.id, playlist.session.id)
+                .await
+            {
+                Ok(playback_session) => playback_session,
+                Err(error) => {
+                    app.mark_playback_session_failed_after_start_error(playback_session.id)
+                        .await;
+                    return Err(error);
+                }
+            };
+        if let Err(error) = app
+            .cancel_superseded_hls_playback_sessions(
+                request.source_id,
+                playlist.session.id,
+                playback_session.id,
+            )
+            .await
+        {
+            app.mark_playback_session_failed_after_start_error(playback_session.id)
+                .await;
+            return Err(error);
+        }
+        let body = match app
             .hls_artifacts
             .read_playback_playlist(
                 &playlist.session,
                 playback_session.id,
                 request.transport_query.as_deref(),
             )
-            .await?;
-
+            .await
+        {
+            Ok(body) => body,
+            Err(error) => {
+                app.mark_playback_session_failed_after_start_error(playback_session.id)
+                    .await;
+                return Err(error);
+            }
+        };
         return Ok(HlsPlaylistPlaybackOutput {
             session: playback_session,
             body,

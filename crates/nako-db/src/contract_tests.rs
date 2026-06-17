@@ -83,22 +83,22 @@ use nako_core::{
     NfoSidecarApplyId, NfoSidecarApplyOperationKind, NfoSidecarApplyRepository,
     NfoSidecarApplyState, OutboxEventListFilter, OutboxEventStatus, PageRequest, Person, PersonId,
     PlaybackPermissionPolicy, PlaybackPolicy, PlaybackPolicyFilter, PlaybackPolicyRepository,
-    PlaybackPolicyScope, PlaybackSessionHeartbeat, PlaybackSessionId, PlaybackSessionListFilter,
-    PlaybackSessionMode, PlaybackSessionRepository, PlaybackSessionState, PlaybackTargetKind,
-    PlaybackTargetNetworkScope, PlaybackTargetTransportAuth, ProviderMapping, ProviderMappingId,
-    ProviderMappingRepository, ProviderMappingStatus, ProviderRawResponse, ProviderSubject,
-    ProviderSubjectId, ProviderSubjectKind, RecoverExpiredJobLeases, RendererCommandCompletion,
-    RendererCommandId, RendererCommandListFilter, RendererCommandState,
-    RendererControlCapabilities, RendererControlCommand, RendererSessionHeartbeat,
-    RendererSessionId, RendererSessionListFilter, RendererSessionRepository, RendererSessionState,
-    RequestJobCancellation, RoleAssignment, ScanRepository, ScanSnapshotId, ScanStatus,
-    SelectedArtworkRecord, SourceDuplicateEvidenceKind, SourceDuplicateRelationship,
-    SourceDuplicateRelationshipId, SourceDuplicateRelationshipStatus, SourceDuplicateRepository,
-    SourceState, StagingAttribution, StagingManifestId, StagingManifestRepository, StagingPurpose,
-    StagingState, StorageBackendHealthListFilter, StorageBackendHealthRecord,
-    StorageBackendHealthRepository, StorageBackendHealthStatus, StorageCircuitBreakerState,
-    StorageFailureClass, Studio, StudioId, Tag, TagId, TranscodeFailureCategory,
-    TranscodeSessionId, TranscodeSessionKind, TranscodeSessionListFilter,
+    PlaybackPolicyScope, PlaybackSessionAdmissionCreate, PlaybackSessionHeartbeat,
+    PlaybackSessionId, PlaybackSessionListFilter, PlaybackSessionMode, PlaybackSessionRepository,
+    PlaybackSessionState, PlaybackTargetKind, PlaybackTargetNetworkScope,
+    PlaybackTargetTransportAuth, ProviderMapping, ProviderMappingId, ProviderMappingRepository,
+    ProviderMappingStatus, ProviderRawResponse, ProviderSubject, ProviderSubjectId,
+    ProviderSubjectKind, RecoverExpiredJobLeases, RendererCommandCompletion, RendererCommandId,
+    RendererCommandListFilter, RendererCommandState, RendererControlCapabilities,
+    RendererControlCommand, RendererSessionHeartbeat, RendererSessionId, RendererSessionListFilter,
+    RendererSessionRepository, RendererSessionState, RequestJobCancellation, RoleAssignment,
+    ScanRepository, ScanSnapshotId, ScanStatus, SelectedArtworkRecord, SourceDuplicateEvidenceKind,
+    SourceDuplicateRelationship, SourceDuplicateRelationshipId, SourceDuplicateRelationshipStatus,
+    SourceDuplicateRepository, SourceState, StagingAttribution, StagingManifestId,
+    StagingManifestRepository, StagingPurpose, StagingState, StorageBackendHealthListFilter,
+    StorageBackendHealthRecord, StorageBackendHealthRepository, StorageBackendHealthStatus,
+    StorageCircuitBreakerState, StorageFailureClass, Studio, StudioId, Tag, TagId,
+    TranscodeFailureCategory, TranscodeSessionId, TranscodeSessionKind, TranscodeSessionListFilter,
     TranscodeSessionRepository, TranscodeSessionState, User, UserId, UserInvitationId,
     UserInvitationRecord, UserInvitationStatus, UserPlaybackProfileId,
     UserPlaybackProfilePreferenceRepository, UserPlaybackProfilePreferenceWrite,
@@ -7967,6 +7967,105 @@ where
     assert_eq!(store.count_active_playback_sessions().await.unwrap(), 0);
 }
 
+async fn playback_session_admission_create_contract<S>(store: S)
+where
+    S: PlaybackRuntimeContractBackend,
+{
+    let library = seed_contract_library(&store).await;
+    let source = seed_contract_media_item_with_source(
+        &store,
+        library.id,
+        "Playback Session Strict Admission",
+        "local:///Contract Movies/Playback Session Strict Admission.mkv",
+    )
+    .await;
+    let principal_id = UserPrincipalId::local_admin();
+    let now_ms = 1_779_814_400_000;
+
+    let first_id = PlaybackSessionId::new();
+    let first = store
+        .create_playback_session_with_admission(PlaybackSessionAdmissionCreate {
+            session: NewPlaybackSession {
+                id: first_id,
+                principal_id: principal_id.clone(),
+                source_id: source.id,
+                item_id: source.item_id,
+                mode: PlaybackSessionMode::Direct,
+                state: PlaybackSessionState::Active,
+                client_capabilities_json: None,
+                started_at_ms: now_ms,
+                updated_at_ms: now_ms,
+            },
+            active_session_limit: 1,
+            stale_before_ms: now_ms - 60_000,
+            ended_at_ms: now_ms,
+        })
+        .await
+        .unwrap();
+    assert_eq!(first.id, first_id);
+    assert_eq!(first.state, PlaybackSessionState::Active);
+
+    let rejected_id = PlaybackSessionId::new();
+    let rejected = store
+        .create_playback_session_with_admission(PlaybackSessionAdmissionCreate {
+            session: NewPlaybackSession {
+                id: rejected_id,
+                principal_id: principal_id.clone(),
+                source_id: source.id,
+                item_id: source.item_id,
+                mode: PlaybackSessionMode::Remux,
+                state: PlaybackSessionState::Active,
+                client_capabilities_json: None,
+                started_at_ms: now_ms + 1_000,
+                updated_at_ms: now_ms + 1_000,
+            },
+            active_session_limit: 1,
+            stale_before_ms: now_ms - 60_000,
+            ended_at_ms: now_ms + 1_000,
+        })
+        .await
+        .unwrap_err();
+    assert!(
+        matches!(rejected, NakoError::Conflict { .. }),
+        "expected conflict for active playback session limit, got {rejected:?}"
+    );
+    assert!(
+        store
+            .get_playback_session(rejected_id)
+            .await
+            .unwrap()
+            .is_none()
+    );
+    assert_eq!(store.count_active_playback_sessions().await.unwrap(), 1);
+
+    let admitted_after_reap_id = PlaybackSessionId::new();
+    let admitted_after_reap = store
+        .create_playback_session_with_admission(PlaybackSessionAdmissionCreate {
+            session: NewPlaybackSession {
+                id: admitted_after_reap_id,
+                principal_id,
+                source_id: source.id,
+                item_id: source.item_id,
+                mode: PlaybackSessionMode::Hls,
+                state: PlaybackSessionState::Active,
+                client_capabilities_json: None,
+                started_at_ms: now_ms + 120_000,
+                updated_at_ms: now_ms + 120_000,
+            },
+            active_session_limit: 1,
+            stale_before_ms: now_ms + 60_000,
+            ended_at_ms: now_ms + 120_000,
+        })
+        .await
+        .unwrap();
+    assert_eq!(admitted_after_reap.id, admitted_after_reap_id);
+
+    let first_after_reap = store.get_playback_session(first_id).await.unwrap().unwrap();
+    assert_eq!(first_after_reap.state, PlaybackSessionState::Ended);
+    assert_eq!(first_after_reap.ended_at_ms, Some(now_ms + 120_000));
+    assert_eq!(store.count_active_playback_sessions().await.unwrap(), 1);
+}
+
 async fn renderer_session_and_command_queue_contract<S>(store: S)
 where
     S: RendererRuntimeContractBackend,
@@ -12978,6 +13077,16 @@ database_contract_pair!(
         "playback_session_active_count_and_idle_reap"
     ),
     contract = playback_session_active_count_and_idle_reap_contract,
+);
+
+database_contract_pair!(
+    sqlite = sqlite_playback_runtime_contract_playback_session_admission_create,
+    postgres = postgres_playback_runtime_contract_playback_session_admission_create,
+    case = ContractCase::migrated(
+        ContractFamily::PlaybackRuntime,
+        "playback_session_admission_create"
+    ),
+    contract = playback_session_admission_create_contract,
 );
 
 database_contract_pair!(

@@ -7,12 +7,13 @@ use nako_core::{
     MediaProbeResult, MediaRepository, MediaSource, MediaSourceId, MediaStreamInfo,
     MediaStreamKind, NakoError, NewOutboxEvent, NewPlaybackSession, NewTranscodeSession,
     OutboxEventRecord, PageRequest, PlaybackPermission, PlaybackPolicyRepository,
-    PlaybackSessionHeartbeat, PlaybackSessionId, PlaybackSessionListFilter, PlaybackSessionMode,
-    PlaybackSessionRecord, PlaybackSessionRepository, PlaybackSessionState, RendererSessionId,
-    Result, StagingManifestRepository, TranscodeFailureCategory, TranscodeSessionId,
-    TranscodeSessionKind, TranscodeSessionListFilter, TranscodeSessionRecord,
-    TranscodeSessionRepository, TranscodeSessionRuntimeMetrics, TranscodeSessionState, UserId,
-    UserPlaybackProfile, UserPlaybackProfileId, UserPlaybackProfileRepository, UserPrincipalId,
+    PlaybackSessionAdmissionCreate, PlaybackSessionHeartbeat, PlaybackSessionId,
+    PlaybackSessionListFilter, PlaybackSessionMode, PlaybackSessionRecord,
+    PlaybackSessionRepository, PlaybackSessionState, RendererSessionId, Result,
+    StagingManifestRepository, TranscodeFailureCategory, TranscodeSessionId, TranscodeSessionKind,
+    TranscodeSessionListFilter, TranscodeSessionRecord, TranscodeSessionRepository,
+    TranscodeSessionRuntimeMetrics, TranscodeSessionState, UserId, UserPlaybackProfile,
+    UserPlaybackProfileId, UserPlaybackProfileRepository, UserPrincipalId,
 };
 use nako_playback::{
     ClientPlaybackCapabilities, ClientPlaybackCapabilityRequest, EffectivePlaybackPolicy,
@@ -23,6 +24,7 @@ use nako_streaming::{DirectPlayRangeRequest, DirectPlayResponsePlan};
 use nako_transcode::{HlsPlaybackGeneration, RemuxContainer};
 use nako_vfs::{StorageBackend as _, StorageUri};
 use serde::{Deserialize, Serialize};
+use tracing::warn;
 
 use crate::config::NakoServerConfig;
 
@@ -108,9 +110,9 @@ pub(crate) trait PlaybackRuntimeStore: std::fmt::Debug + Send + Sync {
         profile_id: UserPlaybackProfileId,
     ) -> Result<Option<UserPlaybackProfile>>;
 
-    async fn create_playback_session(
+    async fn create_playback_session_with_admission(
         &self,
-        session: NewPlaybackSession,
+        request: PlaybackSessionAdmissionCreate,
     ) -> Result<PlaybackSessionRecord>;
 
     async fn get_playback_session(
@@ -123,14 +125,6 @@ pub(crate) trait PlaybackRuntimeStore: std::fmt::Debug + Send + Sync {
         filter: PlaybackSessionListFilter,
         page: PageRequest,
     ) -> Result<Vec<PlaybackSessionRecord>>;
-
-    async fn count_active_playback_sessions(&self) -> Result<u64>;
-
-    async fn end_idle_playback_sessions(
-        &self,
-        stale_before_ms: i64,
-        ended_at_ms: i64,
-    ) -> Result<u64>;
 
     async fn find_latest_playback_session_by_transcode_session(
         &self,
@@ -254,11 +248,11 @@ where
             .await
     }
 
-    async fn create_playback_session(
+    async fn create_playback_session_with_admission(
         &self,
-        session: NewPlaybackSession,
+        request: PlaybackSessionAdmissionCreate,
     ) -> Result<PlaybackSessionRecord> {
-        PlaybackSessionRepository::create_playback_session(self, session).await
+        PlaybackSessionRepository::create_playback_session_with_admission(self, request).await
     }
 
     async fn get_playback_session(
@@ -274,19 +268,6 @@ where
         page: PageRequest,
     ) -> Result<Vec<PlaybackSessionRecord>> {
         PlaybackSessionRepository::list_playback_sessions(self, filter, page).await
-    }
-
-    async fn count_active_playback_sessions(&self) -> Result<u64> {
-        PlaybackSessionRepository::count_active_playback_sessions(self).await
-    }
-
-    async fn end_idle_playback_sessions(
-        &self,
-        stale_before_ms: i64,
-        ended_at_ms: i64,
-    ) -> Result<u64> {
-        PlaybackSessionRepository::end_idle_playback_sessions(self, stale_before_ms, ended_at_ms)
-            .await
     }
 
     async fn find_latest_playback_session_by_transcode_session(
@@ -952,19 +933,30 @@ impl PlaybackAppService {
             .map_err(|err| NakoError::InvalidInput {
                 message: format!("playback client capabilities could not be serialized: {err}"),
             })?;
+        let config = self.playback_session_admission_config();
+        let timeout_ms = i64::try_from(config.idle_session_timeout_ms).map_err(|err| {
+            NakoError::InvalidInput {
+                message: format!("playback idle session timeout is too large: {err}"),
+            }
+        })?;
 
-        PlaybackRuntimeStore::create_playback_session(
+        PlaybackRuntimeStore::create_playback_session_with_admission(
             self.runtime_store.as_ref(),
-            NewPlaybackSession {
-                id: PlaybackSessionId::new(),
-                principal_id: request.principal.principal_id,
-                source_id: source.id,
-                item_id: source.item_id,
-                mode: request.mode,
-                state: PlaybackSessionState::Active,
-                client_capabilities_json,
-                started_at_ms: now_ms,
-                updated_at_ms: now_ms,
+            PlaybackSessionAdmissionCreate {
+                session: NewPlaybackSession {
+                    id: PlaybackSessionId::new(),
+                    principal_id: request.principal.principal_id,
+                    source_id: source.id,
+                    item_id: source.item_id,
+                    mode: request.mode,
+                    state: PlaybackSessionState::Active,
+                    client_capabilities_json,
+                    started_at_ms: now_ms,
+                    updated_at_ms: now_ms,
+                },
+                active_session_limit: config.active_session_limit,
+                stale_before_ms: now_ms.saturating_sub(timeout_ms),
+                ended_at_ms: now_ms,
             },
         )
         .await
@@ -992,41 +984,8 @@ impl PlaybackAppService {
 
         self.ensure_remote_playback_session_admission(source, &effective_policy)
             .await?;
-        let now_ms = crate::app::current_time_ms()?;
-        self.ensure_playback_session_admission(now_ms).await?;
 
         Ok(effective_policy)
-    }
-
-    async fn ensure_playback_session_admission(&self, now_ms: i64) -> Result<()> {
-        let config = self.playback_session_admission_config();
-        let timeout_ms = i64::try_from(config.idle_session_timeout_ms).map_err(|err| {
-            NakoError::InvalidInput {
-                message: format!("playback idle session timeout is too large: {err}"),
-            }
-        })?;
-        let stale_before_ms = now_ms.saturating_sub(timeout_ms);
-
-        PlaybackRuntimeStore::end_idle_playback_sessions(
-            self.runtime_store.as_ref(),
-            stale_before_ms,
-            now_ms,
-        )
-        .await?;
-
-        let active_sessions =
-            PlaybackRuntimeStore::count_active_playback_sessions(self.runtime_store.as_ref())
-                .await?;
-        let limit = config.active_session_limit;
-        if active_sessions >= limit {
-            return Err(NakoError::Conflict {
-                message: format!(
-                    "playback active session limit reached: active={active_sessions}, limit={limit}"
-                ),
-            });
-        }
-
-        Ok(())
     }
 
     fn playback_session_admission_config(&self) -> PlaybackSessionAdmissionConfig {
@@ -1210,6 +1169,38 @@ impl PlaybackAppService {
             transcode_session_id,
         )
         .await
+    }
+
+    pub(super) async fn mark_playback_session_failed_after_start_error(
+        &self,
+        playback_session_id: PlaybackSessionId,
+    ) {
+        let ended_at_ms = match crate::app::current_time_ms() {
+            Ok(ended_at_ms) => ended_at_ms,
+            Err(error) => {
+                warn!(
+                    playback_session_id = %playback_session_id,
+                    error = %error,
+                    "failed to timestamp playback session startup failure"
+                );
+                return;
+            }
+        };
+
+        if let Err(error) = PlaybackRuntimeStore::set_playback_session_state(
+            self.runtime_store.as_ref(),
+            playback_session_id,
+            PlaybackSessionState::Failed,
+            Some(ended_at_ms),
+        )
+        .await
+        {
+            warn!(
+                playback_session_id = %playback_session_id,
+                error = %error,
+                "failed to release playback session after startup error"
+            );
+        }
     }
 
     pub(crate) async fn plan_direct_play(

@@ -27,7 +27,7 @@ Authenticated Principal
 | Library access | Shipped foundation | identity/access lanes | Fine-grained content policies. |
 | Playback policy | Shipped runtime admission first slice | `docs/adr/0039-playback-policy-and-renderer-target-boundary.md`; `docs/workstreams/playback-policy-and-renderer-targets/`; `.trellis/tasks/06-18-playback-access-policy-session-limits/` | Per-user quotas, editable operator controls, and strict reservation semantics. |
 | User playback progress | Shipped foundation | `docs/adr/0028-user-playback-state-principal-and-public-contract.md` | Heartbeat buffering and conflict semantics. |
-| Transcode/playback sessions | Shipped runtime admission first slice | playback runtime lanes; `.trellis/tasks/06-18-playback-access-policy-session-limits/` | Strict concurrent session reservation and write pressure tests. |
+| Transcode/playback sessions | Shipped runtime admission first slice plus strict concurrent reservation | playback runtime lanes; `.trellis/tasks/06-18-playback-access-policy-session-limits/`; `.trellis/tasks/06-18-playback-session-strict-reservation/` | Broader playback write-pressure tests. |
 | Search projection | Shipped foundation | catalog/search lanes | FTS/filter scale-up. |
 | Event outbox | Shipped | `docs/adr/0014-durable-event-outbox-for-webhooks-and-automation.md` | Realtime client gateway bridge. |
 
@@ -68,8 +68,8 @@ Scope:
 - shipped first slice: remote playback permission enforcement, max remote
   bitrate admission, server-wide active session ceiling, and idle session
   termination before admission;
-- follow-ons: per-user quotas, allow/deny transcode operator workflows, strict
-  concurrent reservation semantics, and broader playback write-pressure tests.
+- follow-ons: per-user quotas, allow/deny transcode operator workflows, and
+  broader playback write-pressure tests.
 
 ### api-scale-and-cache-contracts
 

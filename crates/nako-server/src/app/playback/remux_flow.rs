@@ -38,7 +38,7 @@ use super::{
         failed_transcode_error, find_active_runtime_session,
         find_finished_runtime_session_with_output, find_latest_runtime_session,
         get_bound_transcode_session, link_playback_session_to_transcode,
-        missing_finished_output_error, start_linked_playback_session,
+        missing_finished_output_error,
     },
     selection::{playback_selection_context, remux_output_container},
     staging_policy::RemuxStagingPolicy,
@@ -58,33 +58,69 @@ pub(super) async fn remux_playback_stream(
         client: request.client.clone(),
         output_container: request.output_container,
     };
-    let remux_start = start_remux_source_with_policy(app, remux_request, effective_policy).await?;
-    let playback_session = start_linked_playback_session(
-        app,
-        StartPlaybackSessionRequest {
-            principal: request.principal,
-            source_id: request.source_id,
-            mode: PlaybackSessionMode::Remux,
-            client: Some(request.client.clone()),
-        },
-        remux_start.session.id,
-    )
-    .await?;
-    let remux = wait_for_remux_start(app, remux_start).await?;
+    let mut playback_session = app
+        .create_playback_session_after_admission(
+            StartPlaybackSessionRequest {
+                principal: request.principal,
+                source_id: request.source_id,
+                mode: PlaybackSessionMode::Remux,
+                client: Some(request.client.clone()),
+            },
+            source,
+        )
+        .await?;
+    let remux_start =
+        match start_remux_source_with_policy(app, remux_request, effective_policy).await {
+            Ok(remux_start) => remux_start,
+            Err(error) => {
+                app.mark_playback_session_failed_after_start_error(playback_session.id)
+                    .await;
+                return Err(error);
+            }
+        };
+    playback_session =
+        match link_playback_session_to_transcode(app, playback_session.id, remux_start.session.id)
+            .await
+        {
+            Ok(playback_session) => playback_session,
+            Err(error) => {
+                app.mark_playback_session_failed_after_start_error(playback_session.id)
+                    .await;
+                return Err(error);
+            }
+        };
+    let remux = match wait_for_remux_start(app, remux_start).await {
+        Ok(remux) => remux,
+        Err(error) => {
+            app.mark_playback_session_failed_after_start_error(playback_session.id)
+                .await;
+            return Err(error);
+        }
+    };
 
     if remux.disposition == RemuxSourceDisposition::Cancelled {
+        app.mark_playback_session_failed_after_start_error(playback_session.id)
+            .await;
         return Err(cancelled_transcode_error(
             "ffmpeg_remux",
             "remux session was cancelled",
         ));
     }
 
-    let response = remux_direct_play_response(
+    let response = match remux_direct_play_response(
         &remux.output_path,
         request.output_container,
         request.range_request,
     )
-    .await?;
+    .await
+    {
+        Ok(response) => response,
+        Err(error) => {
+            app.mark_playback_session_failed_after_start_error(playback_session.id)
+                .await;
+            return Err(error);
+        }
+    };
 
     Ok(RemuxPlaybackStreamOutput {
         session: playback_session,
@@ -118,7 +154,7 @@ pub(super) async fn remux_playback_session_stream(
                     request.source_id,
                 )
                 .await?;
-            let remux_start = start_remux_source_with_policy(
+            let remux_start = match start_remux_source_with_policy(
                 app,
                 RemuxSourceRequest {
                     source_id: request.source_id,
@@ -127,30 +163,62 @@ pub(super) async fn remux_playback_session_stream(
                 },
                 effective_policy,
             )
-            .await?;
-            playback_session = link_playback_session_to_transcode(
+            .await
+            {
+                Ok(remux_start) => remux_start,
+                Err(error) => {
+                    app.mark_playback_session_failed_after_start_error(playback_session.id)
+                        .await;
+                    return Err(error);
+                }
+            };
+            playback_session = match link_playback_session_to_transcode(
                 app,
                 playback_session.id,
                 remux_start.session.id,
             )
-            .await?;
+            .await
+            {
+                Ok(playback_session) => playback_session,
+                Err(error) => {
+                    app.mark_playback_session_failed_after_start_error(playback_session.id)
+                        .await;
+                    return Err(error);
+                }
+            };
             remux_start.session.id
         }
     };
-    let transcode = wait_for_remux_transcode_output(
+    let transcode = match wait_for_remux_transcode_output(
         app,
         playback_session.id,
         request.source_id,
         transcode_session_id,
     )
-    .await?;
+    .await
+    {
+        Ok(transcode) => transcode,
+        Err(error) => {
+            app.mark_playback_session_failed_after_start_error(playback_session.id)
+                .await;
+            return Err(error);
+        }
+    };
 
-    let response = remux_direct_play_response(
+    let response = match remux_direct_play_response(
         &transcode.output_path,
         request.output_container,
         request.range_request,
     )
-    .await?;
+    .await
+    {
+        Ok(response) => response,
+        Err(error) => {
+            app.mark_playback_session_failed_after_start_error(playback_session.id)
+                .await;
+            return Err(error);
+        }
+    };
 
     Ok(RemuxPlaybackStreamOutput {
         session: playback_session,
@@ -167,7 +235,18 @@ pub(super) async fn remux_playback_preflight(
     let effective_policy = app
         .admit_playback_session_start(&request.principal, &source, None)
         .await?;
-    let remux = start_remux_source_with_policy(
+    let mut playback_session = app
+        .create_playback_session_after_admission(
+            StartPlaybackSessionRequest {
+                principal: request.principal,
+                source_id: request.source_id,
+                mode: PlaybackSessionMode::Remux,
+                client: Some(request.client.clone()),
+            },
+            source,
+        )
+        .await?;
+    let remux = match start_remux_source_with_policy(
         app,
         RemuxSourceRequest {
             source_id: request.source_id,
@@ -176,18 +255,29 @@ pub(super) async fn remux_playback_preflight(
         },
         effective_policy,
     )
-    .await?;
-    let playback_session = start_linked_playback_session(
+    .await
+    {
+        Ok(remux) => remux,
+        Err(error) => {
+            app.mark_playback_session_failed_after_start_error(playback_session.id)
+                .await;
+            return Err(error);
+        }
+    };
+    playback_session = match link_playback_session_to_transcode(
         app,
-        StartPlaybackSessionRequest {
-            principal: request.principal,
-            source_id: request.source_id,
-            mode: PlaybackSessionMode::Remux,
-            client: Some(request.client.clone()),
-        },
+        playback_session.id,
         remux.session.id,
     )
-    .await?;
+    .await
+    {
+        Ok(playback_session) => playback_session,
+        Err(error) => {
+            app.mark_playback_session_failed_after_start_error(playback_session.id)
+                .await;
+            return Err(error);
+        }
+    };
 
     let response = nako_streaming::plan_direct_play_response(
         0,

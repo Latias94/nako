@@ -118,6 +118,95 @@ impl PlaybackSessionRepository for PostgresStore {
         self.get_playback_session_or_not_found(session.id).await
     }
 
+    async fn create_playback_session_with_admission(
+        &self,
+        request: PlaybackSessionAdmissionCreate,
+    ) -> Result<PlaybackSessionRecord> {
+        let PlaybackSessionAdmissionCreate {
+            session,
+            active_session_limit,
+            stale_before_ms,
+            ended_at_ms,
+        } = request;
+        let session_id = session.id;
+        let mut transaction = self.pool.begin().await.map_err(database_error)?;
+
+        sqlx::query("LOCK TABLE playback_sessions IN EXCLUSIVE MODE")
+            .execute(&mut *transaction)
+            .await
+            .map_err(database_error)?;
+
+        sqlx::query(
+            r#"
+            UPDATE playback_sessions
+            SET
+                state = 'ended',
+                updated_at_ms = $2,
+                ended_at_ms = COALESCE(ended_at_ms, $2),
+                updated_at = statement_timestamp()
+            WHERE state IN ('active', 'paused', 'cancel_requested')
+              AND COALESCE(last_heartbeat_at_ms, updated_at_ms) < $1
+            "#,
+        )
+        .bind(stale_before_ms)
+        .bind(ended_at_ms)
+        .execute(&mut *transaction)
+        .await
+        .map_err(database_error)?;
+
+        let active_sessions: i64 = sqlx::query_scalar(
+            r#"
+            SELECT COUNT(*)
+            FROM playback_sessions
+            WHERE state IN ('active', 'paused', 'cancel_requested')
+            "#,
+        )
+        .fetch_one(&mut *transaction)
+        .await
+        .map_err(database_error)?;
+        let active_sessions = active_playback_session_count_from_i64(active_sessions)?;
+        if active_sessions >= active_session_limit {
+            transaction.rollback().await.map_err(database_error)?;
+            return Err(active_playback_session_limit_reached(
+                active_sessions,
+                active_session_limit,
+            ));
+        }
+
+        sqlx::query(
+            r#"
+            INSERT INTO playback_sessions (
+                id, principal_id, source_id, item_id, mode, state,
+                client_capabilities_json, started_at_ms, updated_at_ms
+            )
+            VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+            "#,
+        )
+        .bind(session_id.as_uuid())
+        .bind(session.principal_id.as_str())
+        .bind(session.source_id.as_uuid())
+        .bind(session.item_id.as_uuid())
+        .bind(session.mode.as_str())
+        .bind(session.state.as_str())
+        .bind(session.client_capabilities_json)
+        .bind(session.started_at_ms)
+        .bind(session.updated_at_ms)
+        .execute(&mut *transaction)
+        .await
+        .map_err(database_error)?;
+
+        let row = sqlx::query(PLAYBACK_SESSION_SELECT_BY_ID)
+            .bind(session_id.as_uuid())
+            .fetch_one(&mut *transaction)
+            .await
+            .map_err(database_error)?;
+        let record = row_to_playback_session(row)?;
+
+        transaction.commit().await.map_err(database_error)?;
+
+        Ok(record)
+    }
+
     async fn get_playback_session(
         &self,
         id: PlaybackSessionId,
@@ -171,9 +260,7 @@ impl PlaybackSessionRepository for PostgresStore {
         .await
         .map_err(database_error)?;
 
-        u64::try_from(count).map_err(|_| NakoError::Database {
-            message: "active playback session count was negative".to_owned(),
-        })
+        active_playback_session_count_from_i64(count)
     }
 
     async fn end_idle_playback_sessions(
@@ -638,6 +725,20 @@ fn serialize_transcode_runtime_metrics_json(
     metrics: &TranscodeSessionRuntimeMetrics,
 ) -> Result<String> {
     serde_json::to_string(metrics).map_err(database_error)
+}
+
+fn active_playback_session_count_from_i64(count: i64) -> Result<u64> {
+    u64::try_from(count).map_err(|_| NakoError::Database {
+        message: "active playback session count was negative".to_owned(),
+    })
+}
+
+fn active_playback_session_limit_reached(active_sessions: u64, limit: u64) -> NakoError {
+    NakoError::Conflict {
+        message: format!(
+            "playback active session limit reached: active={active_sessions}, limit={limit}"
+        ),
+    }
 }
 
 fn deserialize_transcode_runtime_metrics_json(

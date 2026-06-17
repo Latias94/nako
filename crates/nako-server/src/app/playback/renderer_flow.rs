@@ -69,17 +69,7 @@ pub(super) async fn start_renderer_playback_session(
         }
         PlaybackMode::Remux => {
             let output_container = remux_output_container(&decision)?;
-            let remux = remux_flow::start_remux_source_with_policy(
-                app,
-                RemuxSourceRequest {
-                    source_id: request.source_id,
-                    client: request.target.media_capabilities.clone(),
-                    output_container,
-                },
-                effective_policy.clone(),
-            )
-            .await?;
-            let session = app
+            let mut session = app
                 .create_playback_session_after_admission(
                     StartPlaybackSessionRequest {
                         principal: request.principal,
@@ -90,8 +80,35 @@ pub(super) async fn start_renderer_playback_session(
                     source,
                 )
                 .await?;
-            app.link_playback_session_transcode(session.id, remux.session.id)
-                .await?;
+            let remux = match remux_flow::start_remux_source_with_policy(
+                app,
+                RemuxSourceRequest {
+                    source_id: request.source_id,
+                    client: request.target.media_capabilities.clone(),
+                    output_container,
+                },
+                effective_policy.clone(),
+            )
+            .await
+            {
+                Ok(remux) => remux,
+                Err(error) => {
+                    app.mark_playback_session_failed_after_start_error(session.id)
+                        .await;
+                    return Err(error);
+                }
+            };
+            session = match app
+                .link_playback_session_transcode(session.id, remux.session.id)
+                .await
+            {
+                Ok(session) => session,
+                Err(error) => {
+                    app.mark_playback_session_failed_after_start_error(session.id)
+                        .await;
+                    return Err(error);
+                }
+            };
 
             Ok(StartRendererPlaybackSessionOutput {
                 session,
@@ -108,19 +125,7 @@ pub(super) async fn start_renderer_playback_session(
             })
         }
         PlaybackMode::Transcode => {
-            let playlist = hls_flow::hls_playlist_with_policy(
-                app,
-                HlsSourceRequest {
-                    source_id: request.source_id,
-                    client: request.target.media_capabilities.clone(),
-                    preferences: PlaybackPreferenceContext::default(),
-                    playback_generation: HlsPlaybackGeneration::default(),
-                },
-                effective_policy.clone(),
-                None,
-            )
-            .await?;
-            let session = app
+            let mut session = app
                 .create_playback_session_after_admission(
                     StartPlaybackSessionRequest {
                         principal: request.principal,
@@ -131,14 +136,49 @@ pub(super) async fn start_renderer_playback_session(
                     source,
                 )
                 .await?;
-            app.link_playback_session_transcode(session.id, playlist.session.id)
-                .await?;
-            app.cancel_superseded_hls_playback_sessions(
-                request.source_id,
-                playlist.session.id,
-                session.id,
+            let playlist = match hls_flow::hls_playlist_with_policy(
+                app,
+                HlsSourceRequest {
+                    source_id: request.source_id,
+                    client: request.target.media_capabilities.clone(),
+                    preferences: PlaybackPreferenceContext::default(),
+                    playback_generation: HlsPlaybackGeneration::default(),
+                },
+                effective_policy.clone(),
+                None,
             )
-            .await?;
+            .await
+            {
+                Ok(playlist) => playlist,
+                Err(error) => {
+                    app.mark_playback_session_failed_after_start_error(session.id)
+                        .await;
+                    return Err(error);
+                }
+            };
+            session = match app
+                .link_playback_session_transcode(session.id, playlist.session.id)
+                .await
+            {
+                Ok(session) => session,
+                Err(error) => {
+                    app.mark_playback_session_failed_after_start_error(session.id)
+                        .await;
+                    return Err(error);
+                }
+            };
+            if let Err(error) = app
+                .cancel_superseded_hls_playback_sessions(
+                    request.source_id,
+                    playlist.session.id,
+                    session.id,
+                )
+                .await
+            {
+                app.mark_playback_session_failed_after_start_error(session.id)
+                    .await;
+                return Err(error);
+            }
 
             Ok(StartRendererPlaybackSessionOutput {
                 session,

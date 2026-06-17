@@ -181,6 +181,63 @@ async fn start_playback_session_rejects_when_active_session_limit_is_reached() {
 }
 
 #[tokio::test]
+async fn start_playback_session_reservation_is_strict_under_concurrency() {
+    let script_root = tempfile::tempdir().unwrap();
+    let ffmpeg_path = fake_ffmpeg_script(script_root.path(), "session_limit_concurrency");
+    let (_temp, app, store, source) = remux_app_with_source(ffmpeg_path).await;
+    let playback =
+        app.playback()
+            .with_session_admission_config_for_tests(PlaybackSessionAdmissionConfig {
+                active_session_limit: 1,
+                idle_session_timeout_ms: 60_000,
+            });
+    let principal = local_playback_viewer(&store, source.library_id).await;
+
+    let first = playback.clone();
+    let second = playback.clone();
+    let principal_one = principal.clone();
+    let principal_two = principal;
+    let source_one = source.id;
+    let source_two = source.id;
+    let client = Some(ClientPlaybackCapabilities::default());
+
+    let (first_result, second_result) = tokio::join!(
+        first.start_playback_session(StartPlaybackSessionRequest {
+            principal: principal_one,
+            source_id: source_one,
+            mode: PlaybackSessionMode::Direct,
+            client: client.clone(),
+        }),
+        second.start_playback_session(StartPlaybackSessionRequest {
+            principal: principal_two,
+            source_id: source_two,
+            mode: PlaybackSessionMode::Direct,
+            client,
+        })
+    );
+
+    let outcomes = [first_result, second_result];
+    let successes = outcomes.iter().filter(|result| result.is_ok()).count();
+    let conflicts = outcomes
+        .iter()
+        .filter(|result| matches!(result, Err(NakoError::Conflict { .. })))
+        .count();
+
+    assert_eq!(successes, 1);
+    assert_eq!(conflicts, 1);
+
+    let sessions = store
+        .list_playback_sessions(
+            PlaybackSessionListFilter::default(),
+            PageRequest::first_page(),
+        )
+        .await
+        .unwrap();
+    assert_eq!(sessions.len(), 1);
+    assert_eq!(store.count_active_playback_sessions().await.unwrap(), 1);
+}
+
+#[tokio::test]
 async fn remux_playback_rejects_session_limit_before_transcode_start() {
     let script_root = tempfile::tempdir().unwrap();
     let ffmpeg_path = fake_ffmpeg_script(script_root.path(), "session_limit_remux");
