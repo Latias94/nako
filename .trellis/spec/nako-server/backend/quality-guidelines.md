@@ -67,6 +67,13 @@ Use these gates for `crates/nako-server` feature work.
   Tests should prove paginated scan-job aggregation and must not expose job
   `input_json`, `summary_json`, errors, paths, Source Locators, filenames, or
   tokens.
+- Admin operator readiness recent-execution evidence for Media Library scan
+  must reuse the intake action-plan component status, reason, source reason,
+  and attention counts. Job evidence must be a deliberately smaller projection
+  than `AdminJobListItem`; watch-folder evidence must expose `scan_job_present`
+  rather than `scan_job_id`, collapse discovery failures to counts, and prefer
+  a tick whose status matches the action-plan source reason when multiple
+  library ticks exist.
 - Admin operator readiness changes for Storage must include unresolved VFS cache
   repair pressure. Healthy/no-action repair diagnostics must not degrade
   readiness, but any current unresolved repair target with retryable refresh

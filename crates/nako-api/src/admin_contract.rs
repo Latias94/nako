@@ -2368,6 +2368,46 @@ export interface AdminOperatorReadinessIntakeActionPlan {
   components: AdminOperatorReadinessIntakeActionPlanEntry[];
 }
 
+export interface AdminOperatorReadinessIntakeRecentJobEvidence {
+  kind: string;
+  status: AdminJobStatus;
+  resource_class: string;
+  queued_at: string;
+  started_at: string | null;
+  completed_at: string | null;
+  has_error: boolean;
+}
+
+export interface AdminOperatorReadinessIntakeWatchFolderTickEvidence {
+  status: AdminWatchFolderRuntimeOutcomeStatus;
+  enqueue_scan: boolean;
+  enqueue_reason: AdminWatchFolderIntakeEnqueueReason;
+  scan_admission_status: AdminWatchFolderScanAdmissionStatus;
+  scan_job_present: boolean;
+  reused_existing_scan: boolean;
+  backoff_required: boolean;
+  ready_candidates: number;
+  newly_ready_candidates: number;
+  observed_candidates: number;
+  failure_count: number;
+  discovery_failure_count: number;
+}
+
+export interface AdminOperatorReadinessIntakeRecentEvidenceEntry {
+  component: AdminOperatorReadinessIntakeComponent;
+  status: AdminOperatorReadinessStatus;
+  reason: AdminOperatorReadinessReason;
+  source_reason: string | null;
+  attention_count: number;
+  latest_job: AdminOperatorReadinessIntakeRecentJobEvidence | null;
+  latest_watch_folder_tick: AdminOperatorReadinessIntakeWatchFolderTickEvidence | null;
+}
+
+export interface AdminOperatorReadinessIntakeRecentEvidence {
+  read_only: boolean;
+  components: AdminOperatorReadinessIntakeRecentEvidenceEntry[];
+}
+
 export interface AdminOperatorReadinessVfsCacheRepairPressure {
   total_unresolved_targets: number;
   primary_classification: AdminVfsCacheRepairClassification;
@@ -2405,6 +2445,7 @@ export interface AdminOperatorReadinessResponse {
       };
       intake_evidence: AdminOperatorReadinessIntakeEvidenceSummary;
       intake_action_plan: AdminOperatorReadinessIntakeActionPlan;
+      recent_evidence: AdminOperatorReadinessIntakeRecentEvidence;
       check: AdminOperatorReadinessCheck;
     };
     playback: {
@@ -5310,6 +5351,10 @@ mod tests {
             "AdminStorageBackendHealthResetResponse",
             "AdminOverviewSourceFingerprintHashSummary",
             "AdminOperatorReadinessLibraryScanPosture",
+            "AdminOperatorReadinessIntakeRecentJobEvidence",
+            "AdminOperatorReadinessIntakeWatchFolderTickEvidence",
+            "AdminOperatorReadinessIntakeRecentEvidenceEntry",
+            "AdminOperatorReadinessIntakeRecentEvidence",
             "AdminOperatorReadinessVfsCacheRepairPressure",
             "AdminOperatorReadinessResponse",
             "AdminOverviewResponse",

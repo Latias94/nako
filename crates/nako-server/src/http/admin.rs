@@ -59,13 +59,17 @@ use nako_api::{
         AdminOperatorReadinessCheck, AdminOperatorReadinessDetails,
         AdminOperatorReadinessDurableJobsDetail, AdminOperatorReadinessIntakeActionPlan,
         AdminOperatorReadinessIntakeActionPlanEntry, AdminOperatorReadinessIntakeComponent,
-        AdminOperatorReadinessIntakeEvidenceSummary, AdminOperatorReadinessLibraryScanPosture,
-        AdminOperatorReadinessMediaLibraryScanDetail, AdminOperatorReadinessNetworkDetail,
-        AdminOperatorReadinessPlaybackDetail, AdminOperatorReadinessReason,
-        AdminOperatorReadinessResponse, AdminOperatorReadinessSetupDetail,
-        AdminOperatorReadinessStatus, AdminOperatorReadinessStorageDetail,
-        AdminOperatorReadinessSummary, AdminOperatorReadinessVfsCacheRepairPressure,
-        AdminOriginPolicyDiagnostics, AdminOutboxEventListItem, AdminOutboxEventListResponse,
+        AdminOperatorReadinessIntakeEvidenceSummary, AdminOperatorReadinessIntakeRecentEvidence,
+        AdminOperatorReadinessIntakeRecentEvidenceEntry,
+        AdminOperatorReadinessIntakeRecentJobEvidence,
+        AdminOperatorReadinessIntakeWatchFolderTickEvidence,
+        AdminOperatorReadinessLibraryScanPosture, AdminOperatorReadinessMediaLibraryScanDetail,
+        AdminOperatorReadinessNetworkDetail, AdminOperatorReadinessPlaybackDetail,
+        AdminOperatorReadinessReason, AdminOperatorReadinessResponse,
+        AdminOperatorReadinessSetupDetail, AdminOperatorReadinessStatus,
+        AdminOperatorReadinessStorageDetail, AdminOperatorReadinessSummary,
+        AdminOperatorReadinessVfsCacheRepairPressure, AdminOriginPolicyDiagnostics,
+        AdminOutboxEventListItem, AdminOutboxEventListResponse,
         AdminOverviewMetadataProviderSummary, AdminOverviewMetadataSummary, AdminOverviewResponse,
         AdminOverviewRuntimeSummary, AdminOverviewSourceFingerprintHashSummary,
         AdminOverviewStartupSummary, AdminOverviewStatus, AdminOverviewStorageBackendSummary,
@@ -145,14 +149,14 @@ use nako_core::{
     ArtworkCandidateId, AutomationArtifactId, ExternalProvider,
     GeneratedArtifactMetadataApplyOutcomeId, GeneratedArtifactMetadataApplyRecoveryAttention,
     GeneratedArtifactMetadataApplyRecoveryFilter, GeneratedArtifactMetadataBulkApplyBatchId,
-    ImageKind, JobId, JobQueuePressureSummary, JobStatus, LibraryAccessPolicy,
-    LibraryAccessPolicyFilter, LibraryAccessPolicyScope, LibraryId, ManagedArtworkArtifactId,
-    ManagedArtworkIngestId, MediaItemId, MediaSourceId, MetadataCandidateReviewBatchId,
-    MetadataCandidateReviewId, MetadataCandidateReviewQueueFilter, MetadataCandidateReviewStatus,
-    NakoError, PageRequest, PlaybackPolicy, PlaybackPolicyFilter, PlaybackPolicyScope,
-    PlaybackTargetKind, PlaybackTargetTransportAuth, ProviderMappingId, RendererSessionRecord,
-    RendererSessionState, RoleAssignment, TranscodeSessionId, User, UserId, UserInvitationId,
-    UserPrincipalId, UserRole, UserStatus,
+    ImageKind, Job, JobId, JobKind, JobListFilter, JobQueuePressureSummary, JobStatus,
+    LibraryAccessPolicy, LibraryAccessPolicyFilter, LibraryAccessPolicyScope, LibraryId,
+    ManagedArtworkArtifactId, ManagedArtworkIngestId, MediaItemId, MediaSourceId,
+    MetadataCandidateReviewBatchId, MetadataCandidateReviewId, MetadataCandidateReviewQueueFilter,
+    MetadataCandidateReviewStatus, NakoError, PageRequest, PlaybackPolicy, PlaybackPolicyFilter,
+    PlaybackPolicyScope, PlaybackTargetKind, PlaybackTargetTransportAuth, ProviderMappingId,
+    RendererSessionRecord, RendererSessionState, RoleAssignment, TranscodeSessionId, User, UserId,
+    UserInvitationId, UserPrincipalId, UserRole, UserStatus,
 };
 use nako_db::DatabaseBackendCapabilities;
 use nako_library::{
@@ -1581,6 +1585,12 @@ struct OperatorReadinessContext {
     playback_readiness: AdminPlaybackReadinessDiagnostics,
 }
 
+#[derive(Clone, Debug, Default)]
+struct OperatorReadinessRecentIntakeJobs {
+    library_scan: Option<Job>,
+    source_fingerprint_hash: Option<Job>,
+}
+
 async fn admin_overview_response(app: &NakoApp) -> ApiResult<AdminOverviewResponse> {
     let catalog = app.catalog().catalog_governance_summary().await?;
     let metadata = app.metadata().list_metadata_provider_diagnostics();
@@ -1607,7 +1617,8 @@ async fn admin_operator_readiness_response(
     app: &NakoApp,
 ) -> ApiResult<AdminOperatorReadinessResponse> {
     let readiness = operator_readiness_context(app).await?;
-    let details = operator_readiness_details(app.config(), &readiness);
+    let recent_intake_jobs = operator_readiness_recent_intake_jobs(app).await?;
+    let details = operator_readiness_details(app.config(), &readiness, &recent_intake_jobs);
 
     Ok(AdminOperatorReadinessResponse {
         admin_api_version: ADMIN_API_VERSION.to_owned(),
@@ -4411,9 +4422,48 @@ async fn operator_readiness_context(app: &NakoApp) -> ApiResult<OperatorReadines
     })
 }
 
+async fn operator_readiness_recent_intake_jobs(
+    app: &NakoApp,
+) -> ApiResult<OperatorReadinessRecentIntakeJobs> {
+    let library_scan =
+        latest_operator_readiness_intake_job(app, JobKind::LibraryScan, "disk.scan").await?;
+    let source_fingerprint_hash = latest_operator_readiness_intake_job(
+        app,
+        JobKind::SourceFingerprintHash,
+        nako_library::SOURCE_FINGERPRINT_HASH_JOB_RESOURCE_CLASS,
+    )
+    .await?;
+
+    Ok(OperatorReadinessRecentIntakeJobs {
+        library_scan,
+        source_fingerprint_hash,
+    })
+}
+
+async fn latest_operator_readiness_intake_job(
+    app: &NakoApp,
+    kind: JobKind,
+    resource_class: &str,
+) -> ApiResult<Option<Job>> {
+    let mut jobs = app
+        .jobs()
+        .list_jobs(
+            JobListFilter {
+                kind: Some(kind),
+                resource_class: Some(resource_class.to_owned()),
+                ..JobListFilter::default()
+            },
+            PageRequest::new(1, 0),
+        )
+        .await?;
+
+    Ok(jobs.pop())
+}
+
 fn operator_readiness_details(
     config: &crate::config::NakoServerConfig,
     context: &OperatorReadinessContext,
+    recent_intake_jobs: &OperatorReadinessRecentIntakeJobs,
 ) -> AdminOperatorReadinessDetails {
     let summary = &context.summary;
     let setup_check = operator_readiness_check_for(summary, AdminOperatorReadinessArea::Setup);
@@ -4435,6 +4485,11 @@ fn operator_readiness_details(
     let scan_intake_action_plan = media_library_scan_intake_action_plan(
         &context.source_fingerprint_hash,
         &context.library_scan_posture,
+        &context.startup.watch_folder_runtime,
+    );
+    let scan_intake_recent_evidence = media_library_scan_intake_recent_evidence(
+        &scan_intake_action_plan,
+        recent_intake_jobs,
         &context.startup.watch_folder_runtime,
     );
 
@@ -4462,6 +4517,7 @@ fn operator_readiness_details(
             watch_folder_runtime: context.startup.watch_folder_runtime.clone(),
             intake_evidence: scan_intake_evidence,
             intake_action_plan: scan_intake_action_plan,
+            recent_evidence: scan_intake_recent_evidence,
             check: scan_check,
         },
         playback: AdminOperatorReadinessPlaybackDetail {
@@ -4761,6 +4817,114 @@ fn media_library_scan_intake_action_plan(
             source_fingerprint_hash_intake_action_plan_entry(source_fingerprint_hash),
             watch_folder_intake_action_plan_entry(watch_folder_runtime),
         ],
+    }
+}
+
+fn media_library_scan_intake_recent_evidence(
+    action_plan: &AdminOperatorReadinessIntakeActionPlan,
+    recent_jobs: &OperatorReadinessRecentIntakeJobs,
+    watch_folder_runtime: &AdminOverviewWatchFolderRuntimeSummary,
+) -> AdminOperatorReadinessIntakeRecentEvidence {
+    AdminOperatorReadinessIntakeRecentEvidence {
+        read_only: true,
+        components: action_plan
+            .components
+            .iter()
+            .map(|entry| match entry.component {
+                AdminOperatorReadinessIntakeComponent::LibraryScan => {
+                    intake_recent_evidence_entry(entry, recent_jobs.library_scan.as_ref(), None)
+                }
+                AdminOperatorReadinessIntakeComponent::SourceFingerprintHash => {
+                    intake_recent_evidence_entry(
+                        entry,
+                        recent_jobs.source_fingerprint_hash.as_ref(),
+                        None,
+                    )
+                }
+                AdminOperatorReadinessIntakeComponent::WatchFolder => intake_recent_evidence_entry(
+                    entry,
+                    None,
+                    latest_watch_folder_tick_evidence(watch_folder_runtime, entry),
+                ),
+            })
+            .collect(),
+    }
+}
+
+fn intake_recent_evidence_entry(
+    action: &AdminOperatorReadinessIntakeActionPlanEntry,
+    latest_job: Option<&Job>,
+    latest_watch_folder_tick: Option<AdminOperatorReadinessIntakeWatchFolderTickEvidence>,
+) -> AdminOperatorReadinessIntakeRecentEvidenceEntry {
+    AdminOperatorReadinessIntakeRecentEvidenceEntry {
+        component: action.component,
+        status: action.status,
+        reason: action.reason,
+        source_reason: action.source_reason.clone(),
+        attention_count: action.attention_count,
+        latest_job: latest_job.map(intake_recent_job_evidence),
+        latest_watch_folder_tick,
+    }
+}
+
+fn intake_recent_job_evidence(job: &Job) -> AdminOperatorReadinessIntakeRecentJobEvidence {
+    AdminOperatorReadinessIntakeRecentJobEvidence {
+        kind: job.kind,
+        status: job.status,
+        resource_class: job.resource_class.clone(),
+        queued_at: job.queued_at.clone(),
+        started_at: job.started_at.clone(),
+        completed_at: job.completed_at.clone(),
+        has_error: job.error.is_some(),
+    }
+}
+
+fn latest_watch_folder_tick_evidence(
+    runtime: &AdminOverviewWatchFolderRuntimeSummary,
+    action: &AdminOperatorReadinessIntakeActionPlanEntry,
+) -> Option<AdminOperatorReadinessIntakeWatchFolderTickEvidence> {
+    runtime
+        .diagnostics
+        .iter()
+        .filter_map(|diagnostic| diagnostic.last_tick.as_ref())
+        .find(|tick| watch_folder_tick_matches_action(tick, action))
+        .or_else(|| {
+            runtime
+                .diagnostics
+                .iter()
+                .find_map(|diagnostic| diagnostic.last_tick.as_ref())
+        })
+        .map(|tick| AdminOperatorReadinessIntakeWatchFolderTickEvidence {
+            status: tick.status,
+            enqueue_scan: tick.enqueue_scan,
+            enqueue_reason: tick.enqueue_reason,
+            scan_admission_status: tick.scan_admission_status,
+            scan_job_present: tick.scan_job_id.is_some(),
+            reused_existing_scan: tick.reused_existing_scan,
+            backoff_required: tick.backoff_required,
+            ready_candidates: tick.ready_candidates,
+            newly_ready_candidates: tick.newly_ready_candidates,
+            observed_candidates: tick.observed_candidates,
+            failure_count: tick.failure_count,
+            discovery_failure_count: usize_to_u32(tick.discovery_failures.len()),
+        })
+}
+
+fn watch_folder_tick_matches_action(
+    tick: &AdminWatchFolderRuntimeTickDiagnostic,
+    action: &AdminOperatorReadinessIntakeActionPlanEntry,
+) -> bool {
+    match action.source_reason.as_deref() {
+        Some("watch_folder_runtime_degraded") => {
+            tick.status == AdminWatchFolderRuntimeOutcomeStatus::Degraded
+        }
+        Some("watch_folder_runtime_blocked") => {
+            tick.status == AdminWatchFolderRuntimeOutcomeStatus::Blocked
+        }
+        Some("watch_folder_reconciliation_pending") => {
+            tick.status == AdminWatchFolderRuntimeOutcomeStatus::ReconciliationPending
+        }
+        _ => false,
     }
 }
 
@@ -6028,6 +6192,47 @@ mod tests {
         assert!(!body.contains("input_json"));
         assert!(!body.contains("summary_json"));
         assert!(!body.contains("token"));
+    }
+
+    #[test]
+    fn media_library_scan_recent_evidence_matches_watch_folder_action_reason() {
+        let startup = startup_summary_with_watch_folder_diagnostics(vec![
+            watch_folder_runtime_diagnostic(
+                AdminWatchFolderRuntimeCoverageStatus::Started,
+                Some(AdminWatchFolderRuntimeOutcomeStatus::Healthy),
+            ),
+            watch_folder_runtime_diagnostic(
+                AdminWatchFolderRuntimeCoverageStatus::Started,
+                Some(AdminWatchFolderRuntimeOutcomeStatus::ReconciliationPending),
+            ),
+        ]);
+        let plan = media_library_scan_intake_action_plan(
+            &AdminOverviewSourceFingerprintHashSummary::default(),
+            &ready_library_scan_posture(startup.configured_libraries as usize),
+            &startup.watch_folder_runtime,
+        );
+        let recent_evidence = media_library_scan_intake_recent_evidence(
+            &plan,
+            &OperatorReadinessRecentIntakeJobs::default(),
+            &startup.watch_folder_runtime,
+        );
+        let watch_folder = recent_evidence
+            .components
+            .iter()
+            .find(|entry| entry.component == AdminOperatorReadinessIntakeComponent::WatchFolder)
+            .expect("watch folder recent evidence");
+
+        assert_eq!(
+            watch_folder.source_reason.as_deref(),
+            Some("watch_folder_reconciliation_pending")
+        );
+        assert_eq!(
+            watch_folder
+                .latest_watch_folder_tick
+                .as_ref()
+                .map(|tick| tick.status),
+            Some(AdminWatchFolderRuntimeOutcomeStatus::ReconciliationPending)
+        );
     }
 
     #[test]

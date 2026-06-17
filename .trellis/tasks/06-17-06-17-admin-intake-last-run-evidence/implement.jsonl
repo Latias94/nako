@@ -1,0 +1,13 @@
+{"file":"CONTEXT.md","reason":"Use Nako glossary terms for Media Library, Media Source, Admin API, and durable job evidence."}
+{"file":".trellis/spec/nako-api/backend/index.md","reason":"Entry point for API DTO and generated Admin contract rules."}
+{"file":".trellis/spec/nako-api/backend/admin-and-public-contracts.md","reason":"Operator readiness drilldown and redaction-safe Admin contract requirements."}
+{"file":".trellis/spec/nako-api/backend/directory-structure.md","reason":"DTO placement and generated contract ownership boundaries."}
+{"file":".trellis/spec/nako-api/backend/quality-guidelines.md","reason":"Generated contract and redaction validation gates."}
+{"file":".trellis/spec/nako-server/backend/index.md","reason":"Entry point for server HTTP and quality rules."}
+{"file":".trellis/spec/nako-server/backend/http-api-patterns.md","reason":"Admin route, no-store, auth, and HTTP DTO mapping conventions."}
+{"file":".trellis/spec/nako-server/backend/error-handling.md","reason":"HTTP error mapping and redaction constraints."}
+{"file":".trellis/spec/nako-server/backend/quality-guidelines.md","reason":"Server test selection and operator-readiness quality requirements."}
+{"file":".trellis/spec/nako-server/backend/source-fingerprint-hash-policy.md","reason":"Source fingerprint hash job redaction and durable job evidence constraints."}
+{"file":".trellis/spec/guides/index.md","reason":"Shared cross-layer and reuse thinking guide entry point."}
+{"file":".trellis/spec/guides/cross-layer-thinking-guide.md","reason":"This task spans service, Admin DTO, generated contract, and tests."}
+{"file":".trellis/spec/guides/code-reuse-thinking-guide.md","reason":"Prefer existing operator-readiness and job evidence helpers over new duplicate policy."}

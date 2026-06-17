@@ -36,7 +36,8 @@ use nako_api::admin::{
     AdminVfsCacheRepairJobDiagnosticStatus, AdminVfsCacheRepairRemediationPlanResponse,
     AdminVfsCacheRepairRetryRequest, AdminVfsCacheRepairTargetListResponse,
     AdminVfsCacheRepairTargetPreviewResponse, AdminWatchFolderIntakeEnqueueReason,
-    AdminWatchFolderRuntimeCoverageStatus, AdminWatchFolderScanAdmissionStatus,
+    AdminWatchFolderRuntimeCoverageStatus, AdminWatchFolderRuntimeOutcomeStatus,
+    AdminWatchFolderScanAdmissionStatus,
 };
 use nako_core::{
     AcquisitionIntakeCandidateId, AcquisitionIntakeCandidateListFilter,
@@ -730,6 +731,43 @@ async fn admin_v1_overview_includes_latest_watch_folder_tick_diagnostics() {
     assert!(!body.contains("token"));
     assert!(!body.contains("fingerprint\":\""));
     assert!(!body.contains("uri_redacted"));
+
+    let readiness = request_json::<AdminOperatorReadinessResponse>(
+        &router,
+        Method::GET,
+        "/admin/v1/operator-readiness",
+    )
+    .await;
+    let watch_folder_recent = readiness
+        .details
+        .media_library_scan
+        .recent_evidence
+        .components
+        .iter()
+        .find(|entry| entry.component == AdminOperatorReadinessIntakeComponent::WatchFolder)
+        .expect("watch-folder recent evidence component");
+    assert!(watch_folder_recent.latest_job.is_none());
+    let tick_evidence = watch_folder_recent
+        .latest_watch_folder_tick
+        .as_ref()
+        .expect("latest watch-folder tick evidence");
+    assert_eq!(
+        tick_evidence.status,
+        AdminWatchFolderRuntimeOutcomeStatus::Healthy
+    );
+    assert!(tick_evidence.enqueue_scan);
+    assert_eq!(
+        tick_evidence.enqueue_reason,
+        AdminWatchFolderIntakeEnqueueReason::NewStableCandidates
+    );
+    assert_eq!(
+        tick_evidence.scan_admission_status,
+        AdminWatchFolderScanAdmissionStatus::Enqueued
+    );
+    assert!(tick_evidence.scan_job_present);
+    assert_eq!(tick_evidence.ready_candidates, 1);
+    assert_eq!(tick_evidence.newly_ready_candidates, 1);
+    assert_eq!(tick_evidence.observed_candidates, 1);
 }
 
 #[tokio::test]
@@ -858,6 +896,44 @@ async fn admin_v1_overview_reports_source_hash_queue_pressure_without_payload_le
             .queued_jobs,
         1
     );
+    let recent_evidence = &readiness.details.media_library_scan.recent_evidence;
+    assert!(recent_evidence.read_only);
+    assert_eq!(recent_evidence.components.len(), 3);
+    let source_hash_recent = recent_evidence
+        .components
+        .iter()
+        .find(|entry| {
+            entry.component == AdminOperatorReadinessIntakeComponent::SourceFingerprintHash
+        })
+        .expect("source hash recent evidence component");
+    assert_eq!(
+        source_hash_recent.status,
+        AdminOperatorReadinessStatus::Degraded
+    );
+    assert_eq!(
+        source_hash_recent.reason,
+        AdminOperatorReadinessReason::ScanWorkPending
+    );
+    assert_eq!(
+        source_hash_recent.source_reason.as_deref(),
+        Some("source_fingerprint_hash_pending")
+    );
+    assert_eq!(source_hash_recent.attention_count, 1);
+    let latest_job = source_hash_recent
+        .latest_job
+        .as_ref()
+        .expect("source hash latest job evidence");
+    assert_eq!(latest_job.kind, JobKind::SourceFingerprintHash);
+    assert_eq!(latest_job.status, JobStatus::Queued);
+    assert_eq!(
+        latest_job.resource_class,
+        SOURCE_FINGERPRINT_HASH_JOB_RESOURCE_CLASS
+    );
+    assert!(!latest_job.queued_at.is_empty());
+    assert_eq!(latest_job.started_at, None);
+    assert_eq!(latest_job.completed_at, None);
+    assert!(!latest_job.has_error);
+    assert!(source_hash_recent.latest_watch_folder_tick.is_none());
     assert!(!readiness_body.contains("source_hash_secret_locator"));
     assert!(!readiness_body.contains("local:///"));
     assert!(!readiness_body.contains("fingerprint\":\""));

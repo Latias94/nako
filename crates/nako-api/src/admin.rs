@@ -1,5 +1,6 @@
 use nako_core::{
-    AdminSettingsEffect, AdminSettingsSource, ExternalProvider, JobId, LibraryId, LibraryPreset,
+    AdminSettingsEffect, AdminSettingsSource, ExternalProvider, JobId, JobKind, JobStatus,
+    LibraryId, LibraryPreset,
 };
 use serde::{Deserialize, Serialize};
 
@@ -357,6 +358,7 @@ pub struct AdminOperatorReadinessMediaLibraryScanDetail {
     pub watch_folder_runtime: AdminOverviewWatchFolderRuntimeSummary,
     pub intake_evidence: AdminOperatorReadinessIntakeEvidenceSummary,
     pub intake_action_plan: AdminOperatorReadinessIntakeActionPlan,
+    pub recent_evidence: AdminOperatorReadinessIntakeRecentEvidence,
     pub check: AdminOperatorReadinessCheck,
 }
 
@@ -384,6 +386,50 @@ pub struct AdminOperatorReadinessIntakeEvidenceSummary {
 pub struct AdminOperatorReadinessIntakeActionPlan {
     pub read_only: bool,
     pub components: Vec<AdminOperatorReadinessIntakeActionPlanEntry>,
+}
+
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+pub struct AdminOperatorReadinessIntakeRecentEvidence {
+    pub read_only: bool,
+    pub components: Vec<AdminOperatorReadinessIntakeRecentEvidenceEntry>,
+}
+
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+pub struct AdminOperatorReadinessIntakeRecentEvidenceEntry {
+    pub component: AdminOperatorReadinessIntakeComponent,
+    pub status: AdminOperatorReadinessStatus,
+    pub reason: AdminOperatorReadinessReason,
+    pub source_reason: Option<String>,
+    pub attention_count: u32,
+    pub latest_job: Option<AdminOperatorReadinessIntakeRecentJobEvidence>,
+    pub latest_watch_folder_tick: Option<AdminOperatorReadinessIntakeWatchFolderTickEvidence>,
+}
+
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+pub struct AdminOperatorReadinessIntakeRecentJobEvidence {
+    pub kind: JobKind,
+    pub status: JobStatus,
+    pub resource_class: String,
+    pub queued_at: String,
+    pub started_at: Option<String>,
+    pub completed_at: Option<String>,
+    pub has_error: bool,
+}
+
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+pub struct AdminOperatorReadinessIntakeWatchFolderTickEvidence {
+    pub status: AdminWatchFolderRuntimeOutcomeStatus,
+    pub enqueue_scan: bool,
+    pub enqueue_reason: AdminWatchFolderIntakeEnqueueReason,
+    pub scan_admission_status: AdminWatchFolderScanAdmissionStatus,
+    pub scan_job_present: bool,
+    pub reused_existing_scan: bool,
+    pub backoff_required: bool,
+    pub ready_candidates: u64,
+    pub newly_ready_candidates: u64,
+    pub observed_candidates: u64,
+    pub failure_count: u64,
+    pub discovery_failure_count: u32,
 }
 
 #[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
@@ -921,6 +967,89 @@ mod tests {
         assert!(!body.contains("source:v1:content_hash"));
         assert!(!body.contains("locator"));
         assert!(!body.contains("uri_redacted"));
+        assert!(!body.contains("local:///"));
+        assert!(!body.contains("C:\\"));
+    }
+
+    #[test]
+    fn operator_readiness_recent_evidence_serializes_safe_execution_facts() {
+        let evidence = AdminOperatorReadinessIntakeRecentEvidence {
+            read_only: true,
+            components: vec![
+                AdminOperatorReadinessIntakeRecentEvidenceEntry {
+                    component: AdminOperatorReadinessIntakeComponent::LibraryScan,
+                    status: AdminOperatorReadinessStatus::Degraded,
+                    reason: AdminOperatorReadinessReason::ScanRepairPressure,
+                    source_reason: Some("failed_library_scan".to_owned()),
+                    attention_count: 1,
+                    latest_job: Some(AdminOperatorReadinessIntakeRecentJobEvidence {
+                        kind: JobKind::LibraryScan,
+                        status: JobStatus::Failed,
+                        resource_class: "disk.scan".to_owned(),
+                        queued_at: "2026-06-17T00:00:00.000Z".to_owned(),
+                        started_at: Some("2026-06-17T00:00:01.000Z".to_owned()),
+                        completed_at: Some("2026-06-17T00:00:02.000Z".to_owned()),
+                        has_error: true,
+                    }),
+                    latest_watch_folder_tick: None,
+                },
+                AdminOperatorReadinessIntakeRecentEvidenceEntry {
+                    component: AdminOperatorReadinessIntakeComponent::WatchFolder,
+                    status: AdminOperatorReadinessStatus::Degraded,
+                    reason: AdminOperatorReadinessReason::ScanWorkPending,
+                    source_reason: Some("watch_folder_reconciliation_pending".to_owned()),
+                    attention_count: 1,
+                    latest_job: None,
+                    latest_watch_folder_tick: Some(
+                        AdminOperatorReadinessIntakeWatchFolderTickEvidence {
+                            status: AdminWatchFolderRuntimeOutcomeStatus::ReconciliationPending,
+                            enqueue_scan: true,
+                            enqueue_reason:
+                                AdminWatchFolderIntakeEnqueueReason::NewStableCandidates,
+                            scan_admission_status:
+                                AdminWatchFolderScanAdmissionStatus::ReusedRunning,
+                            scan_job_present: true,
+                            reused_existing_scan: true,
+                            backoff_required: false,
+                            ready_candidates: 2,
+                            newly_ready_candidates: 1,
+                            observed_candidates: 3,
+                            failure_count: 0,
+                            discovery_failure_count: 0,
+                        },
+                    ),
+                },
+            ],
+        };
+        let value = serde_json::to_value(&evidence).unwrap();
+        let body = value.to_string();
+
+        assert!(evidence.read_only);
+        assert_eq!(value["components"][0]["component"], "library_scan");
+        assert_eq!(value["components"][0]["latest_job"]["kind"], "library_scan");
+        assert_eq!(value["components"][0]["latest_job"]["status"], "failed");
+        assert_eq!(
+            value["components"][0]["latest_job"]["resource_class"],
+            "disk.scan"
+        );
+        assert_eq!(value["components"][0]["latest_job"]["has_error"], true);
+        assert_eq!(
+            value["components"][1]["latest_watch_folder_tick"]["status"],
+            "reconciliation_pending"
+        );
+        assert_eq!(
+            value["components"][1]["latest_watch_folder_tick"]["scan_job_present"],
+            true
+        );
+        assert!(!body.contains("input_json"));
+        assert!(!body.contains("summary_json"));
+        assert!(!body.contains("\"error\""));
+        assert!(!body.contains("retry_of_job_id"));
+        assert!(!body.contains("attempt"));
+        assert!(!body.contains("source_uri"));
+        assert!(!body.contains("locator"));
+        assert!(!body.contains("fingerprint"));
+        assert!(!body.contains("token"));
         assert!(!body.contains("local:///"));
         assert!(!body.contains("C:\\"));
     }

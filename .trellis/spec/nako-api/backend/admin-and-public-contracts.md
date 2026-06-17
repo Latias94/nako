@@ -819,11 +819,25 @@ diagnostics.failure.safe_message = StorageFailureClass::Unknown.safe_message().t
 - Media library scan detail:
   `AdminOperatorReadinessMediaLibraryScanDetail { configured_libraries,
   library_scan, source_fingerprint_hash, watch_folder_runtime,
-  intake_evidence, intake_action_plan, check }`.
+  intake_evidence, intake_action_plan, recent_evidence, check }`.
 - Media library intake action plan:
   `AdminOperatorReadinessIntakeActionPlan { read_only, components }`, where
   each component entry exposes only component, status, reason, optional safe
   source reason code, attention count, and optional existing Admin action.
+- Media library intake recent evidence:
+  `AdminOperatorReadinessIntakeRecentEvidence { read_only, components }`.
+- Recent evidence entries:
+  `AdminOperatorReadinessIntakeRecentEvidenceEntry { component, status, reason,
+  source_reason, attention_count, latest_job, latest_watch_folder_tick }`.
+- Recent job evidence:
+  `AdminOperatorReadinessIntakeRecentJobEvidence { kind, status,
+  resource_class, queued_at, started_at, completed_at, has_error }`.
+- Recent watch-folder tick evidence:
+  `AdminOperatorReadinessIntakeWatchFolderTickEvidence { status, enqueue_scan,
+  enqueue_reason, scan_admission_status, scan_job_present,
+  reused_existing_scan, backoff_required, ready_candidates,
+  newly_ready_candidates, observed_candidates, failure_count,
+  discovery_failure_count }`.
 - Durable job detail:
   `AdminOperatorReadinessDurableJobsDetail { queue_pressure, check }`.
 - Storage detail:
@@ -845,6 +859,21 @@ diagnostics.failure.safe_message = StorageFailureClass::Unknown.safe_message().t
 - Media Library Scan intake evidence and action-plan fields must stay
   aggregate/read-only. They may point to existing Admin pages for inspection,
   but they must not add execution authority to the readiness route.
+- Media Library Scan recent evidence must stay read-only and reuse the same
+  component status/reason/source-reason/attention-count values as the action
+  plan. It may expose only a bounded latest job summary for library scan and
+  source fingerprint hash, plus a redaction-safe latest watch-folder tick
+  projection.
+- Recent job evidence must not reuse full Admin job rows. It exposes only kind,
+  status, resource class, timestamps, and `has_error`; it must not expose job
+  id, library/source bindings, retry linkage, priority, attempt counters,
+  durable `input_json`, durable `summary_json`, or raw `error`.
+- Recent watch-folder tick evidence must not expose `scan_job_id`,
+  library roots, root references, discovery failure refs, or failure text.
+  Expose only `scan_job_present` and bounded counters/enum facts. When multiple
+  library ticks exist, prefer the tick whose status matches the component
+  `source_reason`; fall back to any safe last tick only when the action plan has
+  no matching tick pressure.
 - The route must not perform repair, scanning, playback probing, network
   mutation, backup, durable job enqueue, or scheduler execution.
 - Queue pressure may expose only grouped kind, status, resource class, counts,
@@ -869,6 +898,9 @@ diagnostics.failure.safe_message = StorageFailureClass::Unknown.safe_message().t
 | Runtime facts are empty | Return deterministic empty safe summary shapes |
 | No durable job repository is configured | Return empty queue pressure and a degraded/unknown check, not a panic |
 | Durable jobs contain raw input JSON, summary JSON, or error bodies | Response exposes only queue pressure aggregates |
+| Recent library-scan or source-hash job has raw input, summary, error, retry, attempt, locator, path, hash, or token material | `recent_evidence.components[*].latest_job` exposes only safe job kind/status/resource/timestamps/`has_error` |
+| Multiple watch-folder ticks exist and one matches the action-plan source reason | `latest_watch_folder_tick` uses the matching tick status instead of the first unrelated tick |
+| Watch-folder tick contains a scan job id or discovery failures | Recent evidence exposes only `scan_job_present` and `discovery_failure_count` |
 | Storage/VFS facts contain raw URI, path, backend URL, etag, fingerprint, token, credential, or raw backend error | Response omits those values |
 | Setup config contains token env names or secret values | Response exposes only `token_reference_configured` and safe setup status |
 | Network config contains hosts, trusted proxy values, origins, tunnel token env names, or query strings | Response exposes only readiness-safe fields |
@@ -887,6 +919,9 @@ diagnostics.failure.safe_message = StorageFailureClass::Unknown.safe_message().t
   Web whether library scan, source hash, or watch-folder evidence needs
   attention without exposing raw roots, locators, job payloads, hashes, or
   backend errors.
+- Good: `details.media_library_scan.recent_evidence.components` reuses the
+  action-plan component order and status values while adding only safe latest
+  execution facts for the same component.
 - Base: missing runtime facts produce empty, redaction-safe summaries.
 - Bad: computing readiness by parsing rendered Admin Web text or generated
   TypeScript files.
@@ -910,6 +945,11 @@ diagnostics.failure.safe_message = StorageFailureClass::Unknown.safe_message().t
 - Server route or helper tests prove Media Library Scan intake action-plan
   entries are read-only, deterministic, redaction-safe, and preserve component
   priority for library scan, source hash, and watch-folder evidence.
+- API serialization tests prove recent evidence serializes safe job/tick facts
+  and omits durable payload, retry, attempt, locator, path, fingerprint, token,
+  and raw error terms.
+- Server route or helper tests prove recent watch-folder evidence aligns with
+  the action-plan source reason when multiple safe last ticks exist.
 - Admin Web check gates must pass after regenerating both Admin contract
   artifacts when the route is consumed by UI code.
 
@@ -939,3 +979,26 @@ details.setup.token_env = config.server.token_env.clone();
 details.setup.token_reference_configured =
     config.server.management_token_reference_configured();
 ```
+
+#### Wrong
+
+```rust
+recent.latest_job = Some(AdminJobListItem::from_job(job));
+```
+
+#### Correct
+
+```rust
+recent.latest_job = Some(AdminOperatorReadinessIntakeRecentJobEvidence {
+    kind: job.kind,
+    status: job.status,
+    resource_class: job.resource_class.clone(),
+    queued_at: job.queued_at.clone(),
+    started_at: job.started_at.clone(),
+    completed_at: job.completed_at.clone(),
+    has_error: job.error.is_some(),
+});
+```
+
+Recent evidence is an operator-readiness summary, not a job drilldown. Use a
+small safe projection rather than the fuller Admin Jobs row.
