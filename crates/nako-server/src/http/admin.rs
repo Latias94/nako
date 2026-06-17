@@ -57,13 +57,14 @@ use nako_api::{
         AdminNetworkReadinessReason, AdminNetworkReadinessStatus, AdminOperatorReadinessAction,
         AdminOperatorReadinessArea, AdminOperatorReadinessBackupDetail,
         AdminOperatorReadinessCheck, AdminOperatorReadinessDetails,
-        AdminOperatorReadinessDurableJobsDetail, AdminOperatorReadinessLibraryScanPosture,
-        AdminOperatorReadinessMediaLibraryScanDetail, AdminOperatorReadinessNetworkDetail,
-        AdminOperatorReadinessPlaybackDetail, AdminOperatorReadinessReason,
-        AdminOperatorReadinessResponse, AdminOperatorReadinessSetupDetail,
-        AdminOperatorReadinessStatus, AdminOperatorReadinessStorageDetail,
-        AdminOperatorReadinessSummary, AdminOperatorReadinessVfsCacheRepairPressure,
-        AdminOriginPolicyDiagnostics, AdminOutboxEventListItem, AdminOutboxEventListResponse,
+        AdminOperatorReadinessDurableJobsDetail, AdminOperatorReadinessIntakeEvidenceSummary,
+        AdminOperatorReadinessLibraryScanPosture, AdminOperatorReadinessMediaLibraryScanDetail,
+        AdminOperatorReadinessNetworkDetail, AdminOperatorReadinessPlaybackDetail,
+        AdminOperatorReadinessReason, AdminOperatorReadinessResponse,
+        AdminOperatorReadinessSetupDetail, AdminOperatorReadinessStatus,
+        AdminOperatorReadinessStorageDetail, AdminOperatorReadinessSummary,
+        AdminOperatorReadinessVfsCacheRepairPressure, AdminOriginPolicyDiagnostics,
+        AdminOutboxEventListItem, AdminOutboxEventListResponse,
         AdminOverviewMetadataProviderSummary, AdminOverviewMetadataSummary, AdminOverviewResponse,
         AdminOverviewRuntimeSummary, AdminOverviewSourceFingerprintHashSummary,
         AdminOverviewStartupSummary, AdminOverviewStatus, AdminOverviewStorageBackendSummary,
@@ -4424,6 +4425,12 @@ fn operator_readiness_details(
     let storage_check = operator_readiness_check_for(summary, AdminOperatorReadinessArea::Storage);
     let network_check = operator_readiness_check_for(summary, AdminOperatorReadinessArea::Network);
     let backup_check = operator_readiness_check_for(summary, AdminOperatorReadinessArea::Backup);
+    let scan_intake_evidence = media_library_scan_intake_evidence(
+        &scan_check,
+        &context.source_fingerprint_hash,
+        &context.library_scan_posture,
+        &context.startup.watch_folder_runtime,
+    );
 
     AdminOperatorReadinessDetails {
         setup: AdminOperatorReadinessSetupDetail {
@@ -4447,6 +4454,7 @@ fn operator_readiness_details(
             },
             source_fingerprint_hash: context.source_fingerprint_hash.clone(),
             watch_folder_runtime: context.startup.watch_folder_runtime.clone(),
+            intake_evidence: scan_intake_evidence,
             check: scan_check,
         },
         playback: AdminOperatorReadinessPlaybackDetail {
@@ -4713,6 +4721,75 @@ fn media_library_scan_readiness_check(
         0,
         None,
     )
+}
+
+fn media_library_scan_intake_evidence(
+    check: &AdminOperatorReadinessCheck,
+    source_fingerprint_hash: &AdminOverviewSourceFingerprintHashSummary,
+    library_scan_posture: &LibraryScanPostureAggregate,
+    watch_folder_runtime: &AdminOverviewWatchFolderRuntimeSummary,
+) -> AdminOperatorReadinessIntakeEvidenceSummary {
+    AdminOperatorReadinessIntakeEvidenceSummary {
+        status: check.status,
+        reason: check.reason,
+        source_reason: check.source_reason.clone(),
+        attention_count: check.attention_count,
+        library_scan_attention_count: library_scan_attention_count(library_scan_posture),
+        source_fingerprint_hash_attention_count: source_fingerprint_hash_attention_count(
+            source_fingerprint_hash,
+        ),
+        watch_folder_attention_count: watch_folder_attention_count(watch_folder_runtime),
+    }
+}
+
+fn library_scan_attention_count(posture: &LibraryScanPostureAggregate) -> u32 {
+    posture
+        .failed_libraries
+        .saturating_add(posture.pending_libraries)
+        .saturating_add(posture.never_completed_libraries)
+}
+
+fn source_fingerprint_hash_attention_count(
+    summary: &AdminOverviewSourceFingerprintHashSummary,
+) -> u32 {
+    u64_to_u32(
+        summary
+            .queued_jobs
+            .saturating_add(summary.running_jobs)
+            .saturating_add(summary.delayed_retry_jobs)
+            .saturating_add(summary.failed_jobs),
+    )
+}
+
+fn watch_folder_attention_count(runtime: &AdminOverviewWatchFolderRuntimeSummary) -> u32 {
+    let coverage_gaps = runtime
+        .diagnostics
+        .iter()
+        .filter(|diagnostic| {
+            matches!(
+                diagnostic.status,
+                AdminWatchFolderRuntimeCoverageStatus::UnsupportedRoot
+                    | AdminWatchFolderRuntimeCoverageStatus::MissingRoot
+            )
+        })
+        .count();
+    let tick_pressure = runtime
+        .diagnostics
+        .iter()
+        .filter(|diagnostic| {
+            diagnostic.status == AdminWatchFolderRuntimeCoverageStatus::Started
+                && diagnostic.last_tick.as_ref().is_some_and(|tick| {
+                    matches!(
+                        tick.status,
+                        AdminWatchFolderRuntimeOutcomeStatus::Degraded
+                            | AdminWatchFolderRuntimeOutcomeStatus::Blocked
+                            | AdminWatchFolderRuntimeOutcomeStatus::ReconciliationPending
+                    )
+                })
+        })
+        .count();
+
+    usize_to_u32(coverage_gaps.saturating_add(tick_pressure))
 }
 
 struct WatchFolderRuntimeTickPressure {
@@ -5583,6 +5660,72 @@ mod tests {
                 .map(|action| action.route_key.as_str()),
             Some(ADMIN_JOBS_ROUTE_KEY)
         );
+    }
+
+    #[test]
+    fn media_library_scan_intake_evidence_summarizes_component_attention_counts() {
+        let startup = startup_summary_with_watch_folder_diagnostics(vec![
+            watch_folder_runtime_diagnostic(
+                AdminWatchFolderRuntimeCoverageStatus::Started,
+                Some(AdminWatchFolderRuntimeOutcomeStatus::Degraded),
+            ),
+            watch_folder_runtime_diagnostic(
+                AdminWatchFolderRuntimeCoverageStatus::Started,
+                Some(AdminWatchFolderRuntimeOutcomeStatus::ReconciliationPending),
+            ),
+            watch_folder_runtime_diagnostic(
+                AdminWatchFolderRuntimeCoverageStatus::UnsupportedRoot,
+                None,
+            ),
+            watch_folder_runtime_diagnostic(
+                AdminWatchFolderRuntimeCoverageStatus::MissingRoot,
+                None,
+            ),
+            watch_folder_runtime_diagnostic(
+                AdminWatchFolderRuntimeCoverageStatus::Disabled,
+                Some(AdminWatchFolderRuntimeOutcomeStatus::Blocked),
+            ),
+        ]);
+        let source_fingerprint_hash = AdminOverviewSourceFingerprintHashSummary {
+            queued_jobs: 2,
+            running_jobs: 3,
+            failed_jobs: 5,
+            cancelled_jobs: 7,
+            delayed_retry_jobs: 11,
+            ..AdminOverviewSourceFingerprintHashSummary::default()
+        };
+        let posture = LibraryScanPostureAggregate {
+            configured_libraries: startup.configured_libraries,
+            failed_libraries: 13,
+            pending_libraries: 17,
+            never_completed_libraries: 19,
+            succeeded_libraries: 23,
+        };
+        let check = media_library_scan_readiness_check(
+            &startup,
+            &empty_runtime_summary(),
+            &source_fingerprint_hash,
+            &posture,
+        );
+        let evidence = media_library_scan_intake_evidence(
+            &check,
+            &source_fingerprint_hash,
+            &posture,
+            &startup.watch_folder_runtime,
+        );
+        let body = serde_json::to_string(&evidence).unwrap();
+
+        assert_eq!(evidence.status, check.status);
+        assert_eq!(evidence.reason, check.reason);
+        assert_eq!(evidence.source_reason, check.source_reason);
+        assert_eq!(evidence.attention_count, check.attention_count);
+        assert_eq!(evidence.library_scan_attention_count, 49);
+        assert_eq!(evidence.source_fingerprint_hash_attention_count, 21);
+        assert_eq!(evidence.watch_folder_attention_count, 4);
+        assert!(!body.contains("local:///"));
+        assert!(!body.contains("input_json"));
+        assert!(!body.contains("summary_json"));
+        assert!(!body.contains("token"));
     }
 
     #[test]

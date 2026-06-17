@@ -2059,6 +2059,16 @@ export interface AdminOperatorReadinessLibraryScanPosture {
   succeeded_libraries: number;
 }
 
+export interface AdminOperatorReadinessIntakeEvidenceSummary {
+  status: AdminOperatorReadinessStatus;
+  reason: AdminOperatorReadinessReason;
+  source_reason: string | null;
+  attention_count: number;
+  library_scan_attention_count: number;
+  source_fingerprint_hash_attention_count: number;
+  watch_folder_attention_count: number;
+}
+
 export interface AdminOperatorReadinessVfsCacheRepairPressure {
   total_unresolved_targets: number;
   primary_classification: AdminVfsCacheRepairClassification;
@@ -2094,6 +2104,7 @@ export interface AdminOperatorReadinessResponse {
           last_tick: AdminWatchFolderRuntimeTickDiagnostic | null;
         }>;
       };
+      intake_evidence: AdminOperatorReadinessIntakeEvidenceSummary;
       check: AdminOperatorReadinessCheck;
     };
     playback: {

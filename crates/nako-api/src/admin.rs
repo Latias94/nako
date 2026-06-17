@@ -355,6 +355,7 @@ pub struct AdminOperatorReadinessMediaLibraryScanDetail {
     pub library_scan: AdminOperatorReadinessLibraryScanPosture,
     pub source_fingerprint_hash: AdminOverviewSourceFingerprintHashSummary,
     pub watch_folder_runtime: AdminOverviewWatchFolderRuntimeSummary,
+    pub intake_evidence: AdminOperatorReadinessIntakeEvidenceSummary,
     pub check: AdminOperatorReadinessCheck,
 }
 
@@ -365,6 +366,17 @@ pub struct AdminOperatorReadinessLibraryScanPosture {
     pub failed_libraries: u32,
     pub never_completed_libraries: u32,
     pub succeeded_libraries: u32,
+}
+
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+pub struct AdminOperatorReadinessIntakeEvidenceSummary {
+    pub status: AdminOperatorReadinessStatus,
+    pub reason: AdminOperatorReadinessReason,
+    pub source_reason: Option<String>,
+    pub attention_count: u32,
+    pub library_scan_attention_count: u32,
+    pub source_fingerprint_hash_attention_count: u32,
+    pub watch_folder_attention_count: u32,
 }
 
 #[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]

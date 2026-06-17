@@ -463,6 +463,30 @@ async fn admin_v1_operator_readiness_returns_safe_drilldown_read_model() {
         AdminOperatorReadinessReason::ScanWorkPending
     );
     assert_eq!(
+        readiness.details.media_library_scan.intake_evidence.status,
+        readiness.details.media_library_scan.check.status
+    );
+    assert_eq!(
+        readiness.details.media_library_scan.intake_evidence.reason,
+        readiness.details.media_library_scan.check.reason
+    );
+    assert_eq!(
+        readiness
+            .details
+            .media_library_scan
+            .intake_evidence
+            .source_reason,
+        readiness.details.media_library_scan.check.source_reason
+    );
+    assert_eq!(
+        readiness
+            .details
+            .media_library_scan
+            .intake_evidence
+            .attention_count,
+        readiness.details.media_library_scan.check.attention_count
+    );
+    assert_eq!(
         readiness
             .details
             .media_library_scan
@@ -482,8 +506,24 @@ async fn admin_v1_operator_readiness_returns_safe_drilldown_read_model() {
         readiness
             .details
             .media_library_scan
+            .intake_evidence
+            .library_scan_attention_count,
+        1
+    );
+    assert_eq!(
+        readiness
+            .details
+            .media_library_scan
             .source_fingerprint_hash
             .queued_jobs,
+        0
+    );
+    assert_eq!(
+        readiness
+            .details
+            .media_library_scan
+            .intake_evidence
+            .source_fingerprint_hash_attention_count,
         0
     );
     assert_eq!(
@@ -494,6 +534,14 @@ async fn admin_v1_operator_readiness_returns_safe_drilldown_read_model() {
             .diagnostics[0]
             .root_ref_redacted,
         "local://<redacted>"
+    );
+    assert_eq!(
+        readiness
+            .details
+            .media_library_scan
+            .intake_evidence
+            .watch_folder_attention_count,
+        0
     );
     assert_eq!(
         readiness.details.playback.readiness.status,

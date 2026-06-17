@@ -1,0 +1,8 @@
+{"file": ".trellis/spec/nako-api/backend/admin-and-public-contracts.md", "reason": "Verify Admin contract shape, generated artifact policy, and redaction"}
+{"file": ".trellis/spec/nako-api/backend/quality-guidelines.md", "reason": "Verify admin_contract and generated TypeScript contract gates"}
+{"file": ".trellis/spec/nako-server/backend/http-api-patterns.md", "reason": "Verify Admin HTTP route remains read-only and auth-protected"}
+{"file": ".trellis/spec/nako-server/backend/quality-guidelines.md", "reason": "Verify operator-readiness scan priority and focused server tests"}
+{"file": ".trellis/spec/nako-server/backend/source-fingerprint-hash-policy.md", "reason": "Verify source hash queue facts remain aggregate and redaction-safe"}
+{"file": ".trellis/spec/admin-web/frontend/index.md", "reason": "Verify generated Admin Web contract consumer expectations"}
+{"file": ".trellis/spec/admin-web/frontend/routes-forms-and-tests.md", "reason": "Verify generated contract or mock changes stay aligned with Admin Web checks"}
+{"file": ".trellis/spec/guides/cross-layer-thinking-guide.md", "reason": "Verify cross-layer DTO/server/generated contract consistency"}

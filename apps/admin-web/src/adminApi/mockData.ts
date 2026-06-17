@@ -3333,6 +3333,15 @@ export const mockOperatorReadiness: AdminOperatorReadinessResponse = {
       },
       source_fingerprint_hash: mockOverview.source_fingerprint_hash,
       watch_folder_runtime: mockOverview.startup.watch_folder_runtime,
+      intake_evidence: {
+        status: mockOverview.operator_readiness.checks[1].status,
+        reason: mockOverview.operator_readiness.checks[1].reason,
+        source_reason: mockOverview.operator_readiness.checks[1].source_reason,
+        attention_count: mockOverview.operator_readiness.checks[1].attention_count,
+        library_scan_attention_count: 3,
+        source_fingerprint_hash_attention_count: 11,
+        watch_folder_attention_count: 2,
+      },
       check: mockOverview.operator_readiness.checks[1],
     },
     playback: {

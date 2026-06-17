@@ -1,0 +1,13 @@
+{"file": ".trellis/spec/nako-api/backend/index.md", "reason": "API package spec index for Admin DTO and generated contract work"}
+{"file": ".trellis/spec/nako-api/backend/admin-and-public-contracts.md", "reason": "Admin operator-readiness contract, redaction, and generation rules"}
+{"file": ".trellis/spec/nako-api/backend/directory-structure.md", "reason": "nako-api DTO and generated contract placement rules"}
+{"file": ".trellis/spec/nako-api/backend/quality-guidelines.md", "reason": "API contract generation and redaction quality gates"}
+{"file": ".trellis/spec/nako-server/backend/index.md", "reason": "Server package spec index for HTTP/Admin work"}
+{"file": ".trellis/spec/nako-server/backend/http-api-patterns.md", "reason": "Admin route composition, auth, and DTO boundary rules"}
+{"file": ".trellis/spec/nako-server/backend/quality-guidelines.md", "reason": "Operator-readiness scan priority and focused server gate rules"}
+{"file": ".trellis/spec/nako-server/backend/source-fingerprint-hash-policy.md", "reason": "Source hash queue and redaction constraints used by the intake summary"}
+{"file": ".trellis/spec/admin-web/frontend/index.md", "reason": "Admin Web generated contract consumer guidance"}
+{"file": ".trellis/spec/admin-web/frontend/routes-forms-and-tests.md", "reason": "Admin Web generated contract, mock data, and check expectations"}
+{"file": ".trellis/spec/guides/index.md", "reason": "Shared Trellis thinking guide index"}
+{"file": ".trellis/spec/guides/cross-layer-thinking-guide.md", "reason": "Cross-layer API-server-generated-contract alignment checklist"}
+{"file": ".trellis/spec/guides/code-reuse-thinking-guide.md", "reason": "Search-first guidance before adding helper logic"}
