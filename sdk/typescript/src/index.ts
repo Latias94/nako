@@ -178,7 +178,7 @@ export interface ClientPlaybackDecision {
   transcode_plan: ClientTranscodePlan | null;
 }
 
-export type ClientPlaybackDecisionReason = "compatible" | "requested_transcode_output" | "client_disabled_direct_play" | "source_container_unknown" | "client_container_unsupported" | "source_codecs_unsupported" | "policy_denied";
+export type ClientPlaybackDecisionReason = "compatible" | "requested_transcode_output" | "client_disabled_direct_play" | "source_container_unknown" | "client_container_unsupported" | "source_codecs_unsupported" | "policy_denied" | (string & {});
 
 export interface ClientPlaybackDecisionReasonDetail {
   detail: string;

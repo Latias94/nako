@@ -2968,8 +2968,7 @@ mod tests {
             ])
         );
         assert_eq!(
-            document["components"]["schemas"]["ClientPlaybackDecisionReason"]
-                ["x-extensible-enum"],
+            document["components"]["schemas"]["ClientPlaybackDecisionReason"]["x-extensible-enum"],
             json!([
                 "compatible",
                 "requested_transcode_output",

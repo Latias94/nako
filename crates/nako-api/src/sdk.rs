@@ -1403,12 +1403,17 @@ fn schema_to_ts(schema: &Value) -> String {
     }
 
     let nullable = schema.get("nullable").and_then(Value::as_bool) == Some(true);
-    if schema
-        .get("x-extensible-enum")
-        .and_then(Value::as_array)
-        .is_some()
-    {
-        let mut value = "string".to_owned();
+    if let Some(values) = schema.get("x-extensible-enum").and_then(Value::as_array) {
+        let mut value = values
+            .iter()
+            .filter_map(Value::as_str)
+            .map(|value| format!("\"{value}\""))
+            .chain(std::iter::once("(string & {})".to_owned()))
+            .collect::<Vec<_>>()
+            .join(" | ");
+        if value.is_empty() {
+            value = "string".to_owned();
+        }
         if nullable {
             value.push_str(" | null");
         }
@@ -2293,7 +2298,7 @@ mod tests {
         for expected in [
             "export interface ClientPlaybackCompatibilityConditionDetail",
             "export interface ClientPlaybackDecisionReasonDetail",
-            "export type ClientPlaybackDecisionReason = string;",
+            "export type ClientPlaybackDecisionReason = \"compatible\" | \"requested_transcode_output\" | \"client_disabled_direct_play\" | \"source_container_unknown\" | \"client_container_unsupported\" | \"source_codecs_unsupported\" | \"policy_denied\" | (string & {});",
             "reason: ClientPlaybackDecisionReason",
             "reason_detail?: ClientPlaybackDecisionReasonDetail | null",
             "selection_reason_details?: Array<ClientPlaybackCompatibilityConditionDetail>",
