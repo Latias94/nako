@@ -8,8 +8,8 @@ use nako_core::{
     PlaybackSessionState, RendererCommandRecord, RendererCommandState, RendererControlCapabilities,
     RendererSessionRecord, RendererSessionState, Result, SelectedArtworkRecord, Tag,
     TranscodeFailureCategory, TranscodeSessionKind, TranscodeSessionRecord, TranscodeSessionState,
-    UserPlaybackProfilePreference, UserPlaybackState, UserPlaylistItemRecord, UserPlaylistRecord,
-    UserPlaylistVisibility,
+    UserPlaybackProfile, UserPlaybackProfilePreference, UserPlaybackState, UserPlaylistItemRecord,
+    UserPlaylistRecord, UserPlaylistVisibility,
 };
 use nako_playback::{
     ClientPlaybackCapabilities, DirectPlayPlan, PlaybackCapabilityEvaluation,
@@ -44,17 +44,19 @@ pub use nako_client_protocol::{
     ClientRendererSessionState, ClientSortOrder, ClientTranscodeFailureCategory,
     ClientTranscodePlan, ClientTranscodeSessionKind, ClientTranscodeSessionState,
     ClientUserPlaylistVisibility, ClientWatchStateFilter, CollectionItemDto, CollectionRefDto,
-    ContentRatingDto, ContinueWatchingItemDto, ContinueWatchingResponse, CreateUserPlaylistRequest,
-    CreditDto, CurrentUserDto, CurrentUserResponse, DeleteUserPlaybackProfilePreferenceResponse,
-    ErrorResponse, ExternalIdDto, GenreDto, GenreItemsResponse, GenreListResponse, HealthResponse,
-    ImagesResponse, ItemCreditDto, ItemCreditsResponse, ItemDetailResponse, ItemGenreDto,
-    ItemStudioDto, ItemTagDto, ItemsResponse, LibraryDto, LibraryItemsResponse,
-    LibraryListResponse, LibraryOptionsDto, LibraryResponse, LibraryScanOptionsDto,
-    LibrarySourceResponse, LibrarySourcesResponse, LoginRequest, LoginResponse, LogoutResponse,
-    ManagementContextDto, ManagementContextLinkDto, ManagementContextLinksResponse, MediaItemDto,
-    MediaProbeDto, MediaSourceDto, MediaStreamDispositionDto, MediaStreamDto, MetadataProfileDto,
-    MetadataScanPolicyDto, PLAYBACK_SESSION_ID_HEADER, PageInfo, PeopleResponse, PersonDto,
-    PersonItemsResponse, PersonResponse, PlaybackDecisionResponse, PlaybackProfilePresetDto,
+    ContentRatingDto, ContinueWatchingItemDto, ContinueWatchingResponse,
+    CreateUserPlaybackProfileRequest, CreateUserPlaylistRequest, CreditDto, CurrentUserDto,
+    CurrentUserResponse, DeleteUserPlaybackProfilePreferenceResponse,
+    DeleteUserPlaybackProfileResponse, ErrorResponse, ExternalIdDto, GenreDto, GenreItemsResponse,
+    GenreListResponse, HealthResponse, ImagesResponse, ItemCreditDto, ItemCreditsResponse,
+    ItemDetailResponse, ItemGenreDto, ItemStudioDto, ItemTagDto, ItemsResponse, LibraryDto,
+    LibraryItemsResponse, LibraryListResponse, LibraryOptionsDto, LibraryResponse,
+    LibraryScanOptionsDto, LibrarySourceResponse, LibrarySourcesResponse, LoginRequest,
+    LoginResponse, LogoutResponse, ManagementContextDto, ManagementContextLinkDto,
+    ManagementContextLinksResponse, MediaItemDto, MediaProbeDto, MediaSourceDto,
+    MediaStreamDispositionDto, MediaStreamDto, MetadataProfileDto, MetadataScanPolicyDto,
+    PLAYBACK_SESSION_ID_HEADER, PageInfo, PeopleResponse, PersonDto, PersonItemsResponse,
+    PersonResponse, PlaybackDecisionResponse, PlaybackProfilePresetDto,
     PlaybackProfilePresetsResponse, PlaybackSessionDto, PlaybackSessionHeartbeatRequest,
     PlaybackSessionResponse, PublicImageRefDto, RedeemInvitationRequest,
     RendererCommandCompletionRequest, RendererCommandDto, RendererCommandPollResponse,
@@ -65,8 +67,10 @@ pub use nako_client_protocol::{
     ReorderUserPlaylistItemsRequest, SearchItemHit, SearchResponse,
     SetUserPlaybackProfilePreferenceRequest, SetWatchedStateRequest, SourceProbeResponse,
     StudioRefDto, TagDto, TagItemsResponse, TagsResponse, TranscodeSessionDto,
-    TranscodeSessionResponse, UpdatePlaybackProgressRequest, UpdateUserPlaylistRequest,
-    UserPlaybackProfilePreferenceDto, UserPlaybackProfilePreferenceResponse, UserPlaybackStateDto,
+    TranscodeSessionResponse, UpdatePlaybackProgressRequest, UpdateUserPlaybackProfileRequest,
+    UpdateUserPlaylistRequest, UserPlaybackProfileCapabilitiesRequest, UserPlaybackProfileDto,
+    UserPlaybackProfilePreferenceDto, UserPlaybackProfilePreferenceResponse,
+    UserPlaybackProfileResponse, UserPlaybackProfilesResponse, UserPlaybackStateDto,
     UserPlaybackStateResponse, UserPlaylistDeleteResponse, UserPlaylistDto, UserPlaylistItemDto,
     UserPlaylistItemsResponse, UserPlaylistResponse, UserPlaylistsResponse, UserSessionDto,
 };
@@ -517,21 +521,65 @@ pub fn user_playback_profile_preference_response_from_record(
 ) -> Result<UserPlaybackProfilePreferenceResponse> {
     preference
         .map(|preference| {
-            let capabilities =
-                serde_json::from_str::<ClientPlaybackCapabilities>(&preference.capabilities_json)
-                    .map_err(|err| NakoError::Database {
-                    message: format!("invalid stored playback capability JSON: {err}"),
-                })?;
-
             Ok(UserPlaybackProfilePreferenceResponse {
                 preference: Some(UserPlaybackProfilePreferenceDto {
-                    capabilities: playback_capabilities_to_dto(capabilities),
+                    capabilities: stored_playback_capabilities_to_dto(
+                        &preference.capabilities_json,
+                    )?,
                     updated_at: required_timestamp_ms_to_rfc3339(preference.updated_at_ms),
                     version: preference.version,
                 }),
             })
         })
         .unwrap_or_else(|| Ok(UserPlaybackProfilePreferenceResponse { preference: None }))
+}
+
+pub fn user_playback_profiles_response_from_records(
+    profiles: Vec<UserPlaybackProfile>,
+    page: PageRequest,
+) -> Result<UserPlaybackProfilesResponse> {
+    let returned = profiles.len();
+    let profiles = profiles
+        .into_iter()
+        .map(user_playback_profile_to_dto)
+        .collect::<Result<Vec<_>>>()?;
+
+    Ok(UserPlaybackProfilesResponse {
+        profiles,
+        page: page_info_from_request(page, returned),
+    })
+}
+
+pub fn user_playback_profile_response_from_record(
+    profile: UserPlaybackProfile,
+) -> Result<UserPlaybackProfileResponse> {
+    Ok(UserPlaybackProfileResponse {
+        profile: user_playback_profile_to_dto(profile)?,
+    })
+}
+
+pub fn user_playback_profile_to_dto(
+    profile: UserPlaybackProfile,
+) -> Result<UserPlaybackProfileDto> {
+    Ok(UserPlaybackProfileDto {
+        profile_id: profile.profile_id.to_string(),
+        name: profile.name,
+        capabilities: stored_playback_capabilities_to_dto(&profile.capabilities_json)?,
+        is_default: profile.is_default,
+        updated_at: required_timestamp_ms_to_rfc3339(profile.updated_at_ms),
+        version: profile.version,
+    })
+}
+
+fn stored_playback_capabilities_to_dto(
+    capabilities_json: &str,
+) -> Result<ClientPlaybackCapabilitiesDto> {
+    let capabilities = serde_json::from_str::<ClientPlaybackCapabilities>(capabilities_json)
+        .map_err(|err| NakoError::Database {
+            message: format!("invalid stored playback capability JSON: {err}"),
+        })?;
+
+    Ok(playback_capabilities_to_dto(capabilities))
 }
 
 #[must_use]

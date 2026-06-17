@@ -60,6 +60,14 @@ It performs no network IO and has no runtime dependency on reqwest.
   `user_playback.profile_preference.set`, and
   `user_playback.profile_preference.delete`. They require bearer auth, do not
   add query parameters, and leave the PUT body as caller-owned JSON.
+- Current-user named playback profile builders must use the stable JSON routes
+  `/users/me/playback-profiles` and
+  `/users/me/playback-profiles/{profile_id}` with request IDs
+  `user_playback.profiles`, `user_playback.profiles.create`,
+  `user_playback.profiles.get`, `user_playback.profiles.update`, and
+  `user_playback.profiles.delete`. They require bearer auth, percent-encode
+  `profile_id`, apply only `limit`/`offset` on list, and leave POST/PUT bodies
+  as caller-owned JSON.
 
 ## Forbidden Patterns
 

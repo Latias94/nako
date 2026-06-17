@@ -27,6 +27,14 @@ pub struct CoreUserPlaybackProfilePreferenceRequestInput {
     pub body_utf8: Option<String>,
 }
 
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct CoreUserPlaybackProfileRequestInput {
+    pub base_url: String,
+    pub access_token: String,
+    pub profile_id: String,
+    pub body_utf8: Option<String>,
+}
+
 #[must_use]
 pub fn build_get_user_playback_profile_preference_request(
     input: &CoreUserPlaybackProfilePreferenceRequestInput,
@@ -67,6 +75,81 @@ pub fn build_delete_user_playback_profile_preference_request(
         &input.access_token,
         "DELETE",
         "/users/me/playback-profile",
+        Vec::new(),
+        None,
+    )
+}
+
+#[must_use]
+pub fn build_list_user_playback_profiles_request(
+    input: &CoreUserPlaybackPagedRequestInput,
+) -> crate::CoreHttpRequest {
+    build_user_playback_request(
+        "user_playback.profiles",
+        &input.base_url,
+        &input.access_token,
+        "GET",
+        "/users/me/playback-profiles",
+        page_query(input.page),
+        None,
+    )
+}
+
+#[must_use]
+pub fn build_create_user_playback_profile_request(
+    input: &CoreUserPlaybackProfilePreferenceRequestInput,
+) -> crate::CoreHttpRequest {
+    build_user_playback_request(
+        "user_playback.profiles.create",
+        &input.base_url,
+        &input.access_token,
+        "POST",
+        "/users/me/playback-profiles",
+        Vec::new(),
+        input.body_utf8.clone(),
+    )
+}
+
+#[must_use]
+pub fn build_get_user_playback_profile_request(
+    input: &CoreUserPlaybackProfileRequestInput,
+) -> crate::CoreHttpRequest {
+    build_user_playback_request(
+        "user_playback.profiles.get",
+        &input.base_url,
+        &input.access_token,
+        "GET",
+        &profile_path(&input.profile_id),
+        Vec::new(),
+        None,
+    )
+}
+
+#[must_use]
+pub fn build_update_user_playback_profile_request(
+    input: &CoreUserPlaybackProfileRequestInput,
+) -> crate::CoreHttpRequest {
+    build_user_playback_request(
+        "user_playback.profiles.update",
+        &input.base_url,
+        &input.access_token,
+        "PUT",
+        &profile_path(&input.profile_id),
+        Vec::new(),
+        input.body_utf8.clone(),
+    )
+}
+
+#[must_use]
+pub fn build_delete_user_playback_profile_request(
+    input: &CoreUserPlaybackProfileRequestInput,
+) -> crate::CoreHttpRequest {
+    build_user_playback_request(
+        "user_playback.profiles.delete",
+        &input.base_url,
+        &input.access_token,
+        "DELETE",
+        &profile_path(&input.profile_id),
         Vec::new(),
         None,
     )
@@ -163,6 +246,13 @@ fn item_path(item_id: &str) -> String {
     format!(
         "/users/me/playback-state/items/{}",
         crate::encode_path_segment(item_id)
+    )
+}
+
+fn profile_path(profile_id: &str) -> String {
+    format!(
+        "/users/me/playback-profiles/{}",
+        crate::encode_path_segment(profile_id)
     )
 }
 

@@ -56,10 +56,13 @@ pub use response::{
 pub use user_playback::{
     CoreUserPlaybackItemRequestInput, CoreUserPlaybackItemWriteRequestInput,
     CoreUserPlaybackPagedRequestInput, CoreUserPlaybackProfilePreferenceRequestInput,
+    CoreUserPlaybackProfileRequestInput, build_create_user_playback_profile_request,
     build_delete_user_playback_profile_preference_request,
-    build_get_user_playback_profile_preference_request, build_get_user_playback_state_request,
-    build_list_continue_watching_request, build_set_user_playback_profile_preference_request,
-    build_set_user_watched_state_request, build_update_user_playback_progress_request,
+    build_delete_user_playback_profile_request, build_get_user_playback_profile_preference_request,
+    build_get_user_playback_profile_request, build_get_user_playback_state_request,
+    build_list_continue_watching_request, build_list_user_playback_profiles_request,
+    build_set_user_playback_profile_preference_request, build_set_user_watched_state_request,
+    build_update_user_playback_profile_request, build_update_user_playback_progress_request,
 };
 
 #[cfg(test)]
@@ -735,6 +738,36 @@ mod tests {
             continue_watching.url,
             "https://nako.example/api/users/me/playback-state/continue-watching?limit=12&offset=24"
         );
+
+        let profiles =
+            build_list_user_playback_profiles_request(&CoreUserPlaybackPagedRequestInput {
+                base_url: "https://nako.example/api".to_owned(),
+                access_token: "secret-token".to_owned(),
+                page: Some(CorePageQuery::new(Some(5), Some(10))),
+            });
+        assert_eq!(profiles.request_id, "user_playback.profiles");
+        assert_eq!(profiles.method, "GET");
+        assert_eq!(
+            profiles.url,
+            "https://nako.example/api/users/me/playback-profiles?limit=5&offset=10"
+        );
+        assert_eq!(
+            profiles.safe_preview.headers,
+            vec![CoreHttpHeader::new("Authorization", "Bearer <redacted>")]
+        );
+
+        let profile =
+            build_get_user_playback_profile_request(&CoreUserPlaybackProfileRequestInput {
+                base_url: "https://nako.example/api".to_owned(),
+                access_token: "secret-token".to_owned(),
+                profile_id: "profile/1".to_owned(),
+                body_utf8: None,
+            });
+        assert_eq!(profile.request_id, "user_playback.profiles.get");
+        assert_eq!(
+            profile.url,
+            "https://nako.example/api/users/me/playback-profiles/profile%2F1"
+        );
     }
 
     #[test]
@@ -804,6 +837,66 @@ mod tests {
                 CoreHttpHeader::new("Authorization", "Bearer secret-token"),
                 CoreHttpHeader::new("Content-Type", "application/json"),
             ]
+        );
+
+        let create_profile = build_create_user_playback_profile_request(
+            &CoreUserPlaybackProfilePreferenceRequestInput {
+                base_url: "https://nako.example/api".to_owned(),
+                access_token: "secret-token".to_owned(),
+                body_utf8: Some(r#"{"name":"TV","containers":["mp4"]}"#.to_owned()),
+            },
+        );
+        assert_eq!(create_profile.request_id, "user_playback.profiles.create");
+        assert_eq!(create_profile.method, "POST");
+        assert_eq!(
+            create_profile.url,
+            "https://nako.example/api/users/me/playback-profiles"
+        );
+        assert_eq!(
+            create_profile.headers,
+            vec![
+                CoreHttpHeader::new("Authorization", "Bearer secret-token"),
+                CoreHttpHeader::new("Content-Type", "application/json"),
+            ]
+        );
+        assert_eq!(
+            create_profile.body_utf8.as_deref(),
+            Some(r#"{"name":"TV","containers":["mp4"]}"#)
+        );
+
+        let update_profile =
+            build_update_user_playback_profile_request(&CoreUserPlaybackProfileRequestInput {
+                base_url: "https://nako.example/api".to_owned(),
+                access_token: "secret-token".to_owned(),
+                profile_id: "profile 1".to_owned(),
+                body_utf8: Some(r#"{"name":"Tablet","is_default":false}"#.to_owned()),
+            });
+        assert_eq!(update_profile.request_id, "user_playback.profiles.update");
+        assert_eq!(update_profile.method, "PUT");
+        assert_eq!(
+            update_profile.url,
+            "https://nako.example/api/users/me/playback-profiles/profile%201"
+        );
+        assert_eq!(
+            update_profile.safe_preview.headers,
+            vec![
+                CoreHttpHeader::new("Authorization", "Bearer <redacted>"),
+                CoreHttpHeader::new("Content-Type", "application/json"),
+            ]
+        );
+
+        let delete_profile =
+            build_delete_user_playback_profile_request(&CoreUserPlaybackProfileRequestInput {
+                base_url: "https://nako.example/api".to_owned(),
+                access_token: "secret-token".to_owned(),
+                profile_id: "profile 1".to_owned(),
+                body_utf8: None,
+            });
+        assert_eq!(delete_profile.request_id, "user_playback.profiles.delete");
+        assert_eq!(delete_profile.method, "DELETE");
+        assert_eq!(
+            delete_profile.url,
+            "https://nako.example/api/users/me/playback-profiles/profile%201"
         );
 
         let delete = build_delete_user_playback_profile_preference_request(

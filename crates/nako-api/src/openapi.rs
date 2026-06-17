@@ -624,6 +624,53 @@ fn public_paths() -> Value {
         }),
     );
     paths.insert(
+        "/users/me/playback-profiles".to_owned(),
+        json!({
+            "get": json_get(
+                "listUserPlaybackProfiles",
+                "List the current user's named playback capability profiles.",
+                "user-playback",
+                vec![parameter_ref("Limit"), parameter_ref("Offset")],
+                schema_ref("UserPlaybackProfilesResponse")
+            ),
+            "post": json_post_with_body(
+                "createUserPlaybackProfile",
+                "Resolve and create a named playback capability profile for the current user.",
+                "user-playback",
+                vec![],
+                schema_ref("CreateUserPlaybackProfileRequest"),
+                schema_ref("UserPlaybackProfileResponse")
+            )
+        }),
+    );
+    paths.insert(
+        "/users/me/playback-profiles/{profile_id}".to_owned(),
+        json!({
+            "get": json_get(
+                "getUserPlaybackProfile",
+                "Get one named playback capability profile for the current user.",
+                "user-playback",
+                vec![path_parameter("profile_id", "Playback profile id.")],
+                schema_ref("UserPlaybackProfileResponse")
+            ),
+            "put": json_put(
+                "updateUserPlaybackProfile",
+                "Resolve and replace a named playback capability profile for the current user.",
+                "user-playback",
+                vec![path_parameter("profile_id", "Playback profile id.")],
+                schema_ref("UpdateUserPlaybackProfileRequest"),
+                schema_ref("UserPlaybackProfileResponse")
+            ),
+            "delete": json_delete(
+                "deleteUserPlaybackProfile",
+                "Delete one named playback capability profile for the current user.",
+                "user-playback",
+                vec![path_parameter("profile_id", "Playback profile id.")],
+                schema_ref("DeleteUserPlaybackProfileResponse")
+            )
+        }),
+    );
+    paths.insert(
         "/users/me/playback-state/items/{item_id}".to_owned(),
         json!({
             "get": json_get(
@@ -1356,6 +1403,57 @@ fn nullable_ref(name: &str) -> Value {
     json!({"allOf": [schema_ref(name)], "nullable": true})
 }
 
+fn user_playback_profile_request_properties(mut properties: Value) -> Value {
+    let object = properties
+        .as_object_mut()
+        .expect("profile request properties are an object");
+    object.insert("direct_play".to_owned(), boolean_schema());
+    object.insert("device_family".to_owned(), nullable_string_schema());
+    object.insert(
+        "profile_version".to_owned(),
+        json!({"type": "integer", "format": "int32", "nullable": true}),
+    );
+    object.insert(
+        "containers".to_owned(),
+        json!({"type": "array", "items": string_schema(), "nullable": true}),
+    );
+    object.insert(
+        "video_codecs".to_owned(),
+        json!({"type": "array", "items": string_schema(), "nullable": true}),
+    );
+    object.insert(
+        "audio_codecs".to_owned(),
+        json!({"type": "array", "items": string_schema(), "nullable": true}),
+    );
+    object.insert(
+        "max_video_bitrate".to_owned(),
+        json!({"type": "integer", "format": "int64", "nullable": true}),
+    );
+    object.insert(
+        "max_width".to_owned(),
+        json!({"type": "integer", "format": "int32", "nullable": true}),
+    );
+    object.insert(
+        "max_height".to_owned(),
+        json!({"type": "integer", "format": "int32", "nullable": true}),
+    );
+    object.insert(
+        "max_audio_channels".to_owned(),
+        json!({"type": "integer", "format": "int32", "nullable": true}),
+    );
+    object.insert("supports_hdr".to_owned(), boolean_schema());
+    object.insert("supports_subtitles".to_owned(), boolean_schema());
+    object.insert(
+        "hls_variant_policy".to_owned(),
+        schema_ref("ClientHlsVariantPolicy"),
+    );
+    object.insert(
+        "hls_segment_container".to_owned(),
+        schema_ref("ClientHlsSegmentContainer"),
+    );
+    properties
+}
+
 fn schemas() -> Value {
     json!({
         "HealthResponse": object_schema(&["status", "version"], json!({
@@ -1565,6 +1663,25 @@ fn schemas() -> Value {
             "version": integer_schema("int64")
         })),
         "DeleteUserPlaybackProfilePreferenceResponse": object_schema(&["deleted"], json!({
+            "deleted": boolean_schema()
+        })),
+        "UserPlaybackProfilesResponse": object_schema(&["profiles", "page"], json!({
+            "profiles": array_schema(schema_ref("UserPlaybackProfileDto")),
+            "page": schema_ref("PageInfo")
+        })),
+        "UserPlaybackProfileResponse": object_schema(&["profile"], json!({
+            "profile": schema_ref("UserPlaybackProfileDto")
+        })),
+        "UserPlaybackProfileDto": object_schema(&["profile_id", "name", "capabilities", "is_default", "updated_at", "version"], json!({
+            "profile_id": uuid_schema(),
+            "name": string_schema(),
+            "capabilities": schema_ref("ClientPlaybackCapabilitiesDto"),
+            "is_default": boolean_schema(),
+            "updated_at": string_schema(),
+            "version": integer_schema("int64")
+        })),
+        "DeleteUserPlaybackProfileResponse": object_schema(&["profile_id", "deleted"], json!({
+            "profile_id": uuid_schema(),
             "deleted": boolean_schema()
         })),
         "PlaybackProfilePresetDto": object_schema(&[
@@ -2002,6 +2119,14 @@ fn schemas() -> Value {
             "hls_variant_policy": schema_ref("ClientHlsVariantPolicy"),
             "hls_segment_container": schema_ref("ClientHlsSegmentContainer")
         })),
+        "CreateUserPlaybackProfileRequest": object_schema(&["name"], user_playback_profile_request_properties(json!({
+            "name": string_schema(),
+            "is_default": boolean_schema()
+        }))),
+        "UpdateUserPlaybackProfileRequest": object_schema(&[], user_playback_profile_request_properties(json!({
+            "name": string_schema(),
+            "is_default": boolean_schema()
+        }))),
         "MediaItemDto": object_schema(&["id", "kind", "parent_id", "metadata"], json!({
             "id": uuid_schema(),
             "kind": schema_ref("ClientMediaKind"),
@@ -2213,7 +2338,13 @@ mod tests {
             .as_array()
             .unwrap_or_else(|| panic!("{method} {path} has parameters"))
             .iter()
-            .filter_map(|parameter| parameter["name"].as_str())
+            .filter_map(|parameter| {
+                parameter["name"].as_str().or_else(|| {
+                    let reference = parameter["$ref"].as_str()?;
+                    let component_name = reference.strip_prefix("#/components/parameters/")?;
+                    document["components"]["parameters"][component_name]["name"].as_str()
+                })
+            })
             .map(ToOwned::to_owned)
             .collect()
     }
@@ -3022,9 +3153,43 @@ mod tests {
                 ["application/json"]["schema"]["$ref"],
             "#/components/schemas/DeleteUserPlaybackProfilePreferenceResponse"
         );
+        assert_eq!(
+            document["paths"]["/users/me/playback-profiles"]["get"]["responses"]["200"]["content"]
+                ["application/json"]["schema"]["$ref"],
+            "#/components/schemas/UserPlaybackProfilesResponse"
+        );
+        assert_eq!(
+            operation_parameter_names(&document, "/users/me/playback-profiles", "get"),
+            vec!["limit", "offset"]
+        );
+        assert_eq!(
+            document["paths"]["/users/me/playback-profiles"]["post"]["requestBody"]["content"]["application/json"]
+                ["schema"]["$ref"],
+            "#/components/schemas/CreateUserPlaybackProfileRequest"
+        );
+        assert_eq!(
+            document["paths"]["/users/me/playback-profiles/{profile_id}"]["get"]["responses"]["200"]
+                ["content"]["application/json"]["schema"]["$ref"],
+            "#/components/schemas/UserPlaybackProfileResponse"
+        );
+        assert_eq!(
+            document["paths"]["/users/me/playback-profiles/{profile_id}"]["put"]["requestBody"]["content"]
+                ["application/json"]["schema"]["$ref"],
+            "#/components/schemas/UpdateUserPlaybackProfileRequest"
+        );
+        assert_eq!(
+            document["paths"]["/users/me/playback-profiles/{profile_id}"]["delete"]["responses"]["200"]
+                ["content"]["application/json"]["schema"]["$ref"],
+            "#/components/schemas/DeleteUserPlaybackProfileResponse"
+        );
         assert!(schemas.contains_key("ContinueWatchingResponse"));
         assert!(schemas.contains_key("UserPlaybackStateDto"));
         assert!(schemas.contains_key("UserPlaybackProfilePreferenceResponse"));
+        assert!(schemas.contains_key("UserPlaybackProfilesResponse"));
+        assert!(schemas.contains_key("UserPlaybackProfileResponse"));
+        assert!(schemas.contains_key("UserPlaybackProfileDto"));
+        assert!(schemas.contains_key("CreateUserPlaybackProfileRequest"));
+        assert!(schemas.contains_key("UpdateUserPlaybackProfileRequest"));
         assert_eq!(
             document["components"]["schemas"]["UserPlaybackProfilePreferenceDto"]["properties"]["capabilities"]
                 ["$ref"],
@@ -3037,6 +3202,33 @@ mod tests {
                 .unwrap()
                 .contains_key("containers")
         );
+        assert_eq!(
+            document["components"]["schemas"]["UserPlaybackProfileDto"]["required"],
+            json!([
+                "profile_id",
+                "name",
+                "capabilities",
+                "is_default",
+                "updated_at",
+                "version"
+            ])
+        );
+        assert_eq!(
+            document["components"]["schemas"]["UserPlaybackProfilesResponse"]["properties"]["profiles"]
+                ["items"]["$ref"],
+            "#/components/schemas/UserPlaybackProfileDto"
+        );
+        let create_profile_properties =
+            document["components"]["schemas"]["CreateUserPlaybackProfileRequest"]["properties"]
+                .as_object()
+                .unwrap();
+        assert!(create_profile_properties.contains_key("name"));
+        assert!(create_profile_properties.contains_key("is_default"));
+        assert!(create_profile_properties.contains_key("containers"));
+        assert!(create_profile_properties.contains_key("video_codecs"));
+        assert!(create_profile_properties.contains_key("audio_codecs"));
+        assert!(!create_profile_properties.contains_key("container"));
+        assert!(!create_profile_properties.contains_key("capabilities"));
         assert_eq!(
             document["components"]["schemas"]["ContinueWatchingItemDto"]["properties"]["item"]["$ref"],
             "#/components/schemas/MediaItemDto"

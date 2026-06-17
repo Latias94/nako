@@ -12,20 +12,22 @@ pub use nako_client_protocol::{
     CLIENT_PROTOCOL_VERSION as API_VERSION, ClientBrowseSortKey, ClientHlsSegmentContainer,
     ClientHlsVariantPolicy, ClientOutputContainer, ClientPlaybackCapabilitiesDto,
     ClientPlaybackProfileFamily, ClientSortOrder, ClientUserPlaylistVisibility,
-    ClientWatchStateFilter, ContinueWatchingResponse, CreateUserPlaylistRequest,
-    CurrentUserResponse, DeleteUserPlaybackProfilePreferenceResponse, ErrorResponse,
-    GenreItemsResponse, GenreListResponse, HealthResponse, ImagesResponse, ItemCreditsResponse,
-    ItemDetailResponse, ItemsResponse, LibraryItemsResponse, LibraryListResponse, LibraryResponse,
-    LibrarySourcesResponse, LoginRequest, LoginResponse, LogoutResponse,
-    PLAYBACK_SESSION_ID_HEADER, PageInfo, PeopleResponse, PersonItemsResponse, PersonResponse,
-    PlaybackDecisionResponse, PlaybackProfilePresetDto, PlaybackProfilePresetsResponse,
-    PublicClientRustSdkExposure, ReorderUserPlaylistItemsRequest, SearchResponse,
-    SetUserPlaybackProfilePreferenceRequest, SetWatchedStateRequest, SourceProbeResponse,
-    TagItemsResponse, TagsResponse, TranscodeSessionResponse, UpdatePlaybackProgressRequest,
-    UpdateUserPlaylistRequest, UserPlaybackProfilePreferenceDto,
-    UserPlaybackProfilePreferenceResponse, UserPlaybackStateResponse, UserPlaylistDeleteResponse,
-    UserPlaylistDto, UserPlaylistItemDto, UserPlaylistItemsResponse, UserPlaylistResponse,
-    UserPlaylistsResponse, public_client_json_routes, public_client_paths,
+    ClientWatchStateFilter, ContinueWatchingResponse, CreateUserPlaybackProfileRequest,
+    CreateUserPlaylistRequest, CurrentUserResponse, DeleteUserPlaybackProfilePreferenceResponse,
+    DeleteUserPlaybackProfileResponse, ErrorResponse, GenreItemsResponse, GenreListResponse,
+    HealthResponse, ImagesResponse, ItemCreditsResponse, ItemDetailResponse, ItemsResponse,
+    LibraryItemsResponse, LibraryListResponse, LibraryResponse, LibrarySourcesResponse,
+    LoginRequest, LoginResponse, LogoutResponse, PLAYBACK_SESSION_ID_HEADER, PageInfo,
+    PeopleResponse, PersonItemsResponse, PersonResponse, PlaybackDecisionResponse,
+    PlaybackProfilePresetDto, PlaybackProfilePresetsResponse, PublicClientRustSdkExposure,
+    ReorderUserPlaylistItemsRequest, SearchResponse, SetUserPlaybackProfilePreferenceRequest,
+    SetWatchedStateRequest, SourceProbeResponse, TagItemsResponse, TagsResponse,
+    TranscodeSessionResponse, UpdatePlaybackProgressRequest, UpdateUserPlaybackProfileRequest,
+    UpdateUserPlaylistRequest, UserPlaybackProfileCapabilitiesRequest, UserPlaybackProfileDto,
+    UserPlaybackProfilePreferenceDto, UserPlaybackProfilePreferenceResponse,
+    UserPlaybackProfileResponse, UserPlaybackProfilesResponse, UserPlaybackStateResponse,
+    UserPlaylistDeleteResponse, UserPlaylistDto, UserPlaylistItemDto, UserPlaylistItemsResponse,
+    UserPlaylistResponse, UserPlaylistsResponse, public_client_json_routes, public_client_paths,
     public_client_streaming_routes,
 };
 use reqwest::{
@@ -594,6 +596,99 @@ impl NakoClient {
     ) -> Result<DeleteUserPlaybackProfilePreferenceResponse, NakoClientError> {
         self.request_json_no_query(Method::DELETE, "/users/me/playback-profile", true)
             .await
+    }
+
+    /// List this principal's named playback profiles.
+    ///
+    /// # Errors
+    ///
+    /// Returns transport, HTTP, version, or decode errors.
+    pub async fn list_user_playback_profiles(
+        &self,
+        page: Option<PageQuery>,
+    ) -> Result<UserPlaybackProfilesResponse, NakoClientError> {
+        self.request_json(
+            Method::GET,
+            "/users/me/playback-profiles",
+            page.as_ref(),
+            true,
+        )
+        .await
+    }
+
+    /// Resolve and create a named playback profile for this principal.
+    ///
+    /// # Errors
+    ///
+    /// Returns transport, HTTP, version, encode, or decode errors.
+    pub async fn create_user_playback_profile(
+        &self,
+        request: &CreateUserPlaybackProfileRequest,
+    ) -> Result<UserPlaybackProfileResponse, NakoClientError> {
+        self.request_json_body(Method::POST, "/users/me/playback-profiles", request, true)
+            .await
+    }
+
+    /// Get this principal's named playback profile by profile id.
+    ///
+    /// # Errors
+    ///
+    /// Returns transport, HTTP, version, or decode errors.
+    pub async fn get_user_playback_profile(
+        &self,
+        profile_id: impl AsRef<str>,
+    ) -> Result<UserPlaybackProfileResponse, NakoClientError> {
+        self.request_json_no_query(
+            Method::GET,
+            &format!(
+                "/users/me/playback-profiles/{}",
+                encode_path_segment(profile_id.as_ref())
+            ),
+            true,
+        )
+        .await
+    }
+
+    /// Resolve and replace this principal's named playback profile.
+    ///
+    /// # Errors
+    ///
+    /// Returns transport, HTTP, version, encode, or decode errors.
+    pub async fn update_user_playback_profile(
+        &self,
+        profile_id: impl AsRef<str>,
+        request: &UpdateUserPlaybackProfileRequest,
+    ) -> Result<UserPlaybackProfileResponse, NakoClientError> {
+        self.request_json_body(
+            Method::PUT,
+            &format!(
+                "/users/me/playback-profiles/{}",
+                encode_path_segment(profile_id.as_ref())
+            ),
+            request,
+            true,
+        )
+        .await
+    }
+
+    /// Delete this principal's named playback profile by profile id.
+    ///
+    /// # Errors
+    ///
+    /// Returns transport, HTTP, version, or decode errors.
+    pub async fn delete_user_playback_profile(
+        &self,
+        profile_id: impl AsRef<str>,
+    ) -> Result<DeleteUserPlaybackProfileResponse, NakoClientError> {
+        self.request_json_no_query(
+            Method::DELETE,
+            &format!(
+                "/users/me/playback-profiles/{}",
+                encode_path_segment(profile_id.as_ref())
+            ),
+            true,
+        )
+        .await
     }
 
     /// List this principal's continue-watching items.
@@ -1803,6 +1898,31 @@ mod tests {
         })
     }
 
+    fn playback_profile_json(
+        profile_id: &'static str,
+        name: &'static str,
+        is_default: bool,
+        version: u64,
+    ) -> serde_json::Value {
+        json!({
+            "profile_id": profile_id,
+            "name": name,
+            "capabilities": {
+                "direct_play": true,
+                "device_family": "browser_chromium",
+                "profile_version": 1,
+                "containers": ["mp4"],
+                "video_codecs": ["h264"],
+                "audio_codecs": ["aac"],
+                "hls_variant_policy": "adaptive",
+                "hls_segment_container": "fmp4"
+            },
+            "is_default": is_default,
+            "updated_at": "2026-06-17T00:00:00Z",
+            "version": version
+        })
+    }
+
     fn playback_decision_json() -> serde_json::Value {
         json!({
             "source": {
@@ -2563,6 +2683,124 @@ mod tests {
         assert_eq!(
             serde_json::from_slice::<serde_json::Value>(&requests[5].body).unwrap()["position_ms"],
             120_000
+        );
+    }
+
+    #[tokio::test]
+    async fn named_user_playback_profile_methods_use_current_user_routes() {
+        let transport = MockTransport::default();
+        transport.push_json(
+            StatusCode::OK,
+            json!({
+                "profiles": [playback_profile_json("profile 1", "TV", true, 1)],
+                "page": {"limit": 5, "offset": 10, "returned": 1}
+            }),
+        );
+        transport.push_json(
+            StatusCode::OK,
+            json!({"profile": playback_profile_json("profile 1", "TV", true, 1)}),
+        );
+        transport.push_json(
+            StatusCode::OK,
+            json!({"profile": playback_profile_json("profile 1", "TV", true, 1)}),
+        );
+        transport.push_json(
+            StatusCode::OK,
+            json!({"profile": playback_profile_json("profile 1", "Tablet", false, 2)}),
+        );
+        transport.push_json(
+            StatusCode::OK,
+            json!({"profile_id": "profile 1", "deleted": true}),
+        );
+        let client = NakoClient::with_transport("http://localhost:3000", transport.clone())
+            .unwrap()
+            .bearer_token("secret");
+
+        let list = client
+            .list_user_playback_profiles(Some(PageQuery::new(Some(5), Some(10))))
+            .await
+            .unwrap();
+        let created = client
+            .create_user_playback_profile(&CreateUserPlaybackProfileRequest {
+                name: "TV".to_owned(),
+                is_default: Some(true),
+                capabilities: UserPlaybackProfileCapabilitiesRequest {
+                    containers: Some(vec!["mp4".to_owned()]),
+                    video_codecs: Some(vec!["h264".to_owned()]),
+                    audio_codecs: Some(vec!["aac".to_owned()]),
+                    ..UserPlaybackProfileCapabilitiesRequest::default()
+                },
+            })
+            .await
+            .unwrap();
+        let read = client.get_user_playback_profile("profile 1").await.unwrap();
+        let updated = client
+            .update_user_playback_profile(
+                "profile 1",
+                &UpdateUserPlaybackProfileRequest {
+                    name: Some("Tablet".to_owned()),
+                    is_default: Some(false),
+                    capabilities: UserPlaybackProfileCapabilitiesRequest {
+                        containers: Some(vec!["webm".to_owned()]),
+                        ..UserPlaybackProfileCapabilitiesRequest::default()
+                    },
+                },
+            )
+            .await
+            .unwrap();
+        let deleted = client
+            .delete_user_playback_profile("profile 1")
+            .await
+            .unwrap();
+
+        assert_eq!(list.page, PageInfo::new(5, 10, 1));
+        assert_eq!(list.profiles[0].profile_id, "profile 1");
+        assert_eq!(created.profile.name, "TV");
+        assert_eq!(read.profile.capabilities.containers, vec!["mp4"]);
+        assert_eq!(updated.profile.name, "Tablet");
+        assert!(deleted.deleted);
+
+        let requests = transport.requests();
+        assert_eq!(
+            requests[0].url.as_str(),
+            "http://localhost:3000/users/me/playback-profiles?limit=5&offset=10"
+        );
+        assert_eq!(
+            requests[1].url.as_str(),
+            "http://localhost:3000/users/me/playback-profiles"
+        );
+        assert_eq!(
+            requests[2].url.as_str(),
+            "http://localhost:3000/users/me/playback-profiles/profile%201"
+        );
+        assert_eq!(
+            requests[3].url.as_str(),
+            "http://localhost:3000/users/me/playback-profiles/profile%201"
+        );
+        assert_eq!(
+            requests[4].url.as_str(),
+            "http://localhost:3000/users/me/playback-profiles/profile%201"
+        );
+        assert_eq!(requests[0].method, Method::GET);
+        assert_eq!(requests[1].method, Method::POST);
+        assert_eq!(requests[2].method, Method::GET);
+        assert_eq!(requests[3].method, Method::PUT);
+        assert_eq!(requests[4].method, Method::DELETE);
+        assert_eq!(
+            requests[1]
+                .headers
+                .get(reqwest::header::CONTENT_TYPE)
+                .unwrap(),
+            HeaderValue::from_static("application/json")
+        );
+        assert_eq!(
+            serde_json::from_slice::<serde_json::Value>(&requests[1].body).unwrap()["containers"]
+                [0],
+            "mp4"
+        );
+        assert_eq!(
+            serde_json::from_slice::<serde_json::Value>(&requests[3].body).unwrap()["is_default"],
+            false
         );
     }
 

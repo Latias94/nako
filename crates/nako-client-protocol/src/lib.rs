@@ -344,6 +344,22 @@ pub const PUBLIC_CLIENT_ROUTES: &[PublicClientRoute] = &[
         rust_sdk_exposure: PublicClientRustSdkExposure::JsonMethod,
     },
     PublicClientRoute {
+        path: "/users/me/playback-profiles",
+        methods: &[PublicClientHttpMethod::Get, PublicClientHttpMethod::Post],
+        kind: PublicClientRouteKind::Playback,
+        rust_sdk_exposure: PublicClientRustSdkExposure::JsonMethod,
+    },
+    PublicClientRoute {
+        path: "/users/me/playback-profiles/{profile_id}",
+        methods: &[
+            PublicClientHttpMethod::Get,
+            PublicClientHttpMethod::Put,
+            PublicClientHttpMethod::Delete,
+        ],
+        kind: PublicClientRouteKind::Playback,
+        rust_sdk_exposure: PublicClientRustSdkExposure::JsonMethod,
+    },
+    PublicClientRoute {
         path: "/users/me/playback-state/items/{item_id}",
         methods: &[PublicClientHttpMethod::Get],
         kind: PublicClientRouteKind::Playback,
@@ -583,7 +599,7 @@ mod tests {
     fn public_route_inventory_is_protocol_owned_and_complete() {
         let paths = public_client_paths().collect::<Vec<_>>();
 
-        assert_eq!(paths.len(), 50);
+        assert_eq!(paths.len(), 52);
         assert!(paths.contains(&"/health"));
         assert!(paths.contains(&"/auth/login"));
         assert!(paths.contains(&"/auth/invitations/redeem"));
@@ -608,6 +624,8 @@ mod tests {
         assert!(paths.contains(&"/renderers/{renderer_session_id}/commands/play"));
         assert!(paths.contains(&"/renderers/{renderer_session_id}/commands/{command_id}/complete"));
         assert!(paths.contains(&"/users/me/playback-profile"));
+        assert!(paths.contains(&"/users/me/playback-profiles"));
+        assert!(paths.contains(&"/users/me/playback-profiles/{profile_id}"));
         assert!(paths.contains(&"/users/me/playback-state/items/{item_id}"));
         assert!(paths.contains(&"/users/me/playback-state/continue-watching"));
         assert!(paths.contains(&"/users/me/playback-state/items/{item_id}/progress"));
@@ -652,7 +670,7 @@ mod tests {
 
         let json_count = public_client_json_routes().count();
         let streaming_count = public_client_streaming_routes().count();
-        assert_eq!(json_count, 44);
+        assert_eq!(json_count, 46);
         assert_eq!(streaming_count, 6);
         assert_eq!(json_count + streaming_count, PUBLIC_CLIENT_ROUTES.len());
         let remux_stream = PUBLIC_CLIENT_ROUTES
@@ -688,6 +706,7 @@ mod tests {
                 .all(|route| route.path.starts_with("/sources/")
                     || route.path.starts_with("/playback/")
                     || route.path == "/users/me/playback-profile"
+                    || route.path.starts_with("/users/me/playback-profiles")
                     || route.path.starts_with("/users/me/playback-state/"))
         );
         let profile_preference = PUBLIC_CLIENT_ROUTES
@@ -701,6 +720,40 @@ mod tests {
         );
         assert_eq!(
             profile_preference
+                .methods
+                .iter()
+                .map(|method| method.as_str())
+                .collect::<Vec<_>>(),
+            vec!["GET", "PUT", "DELETE"]
+        );
+        let named_profiles = PUBLIC_CLIENT_ROUTES
+            .iter()
+            .find(|route| route.path == "/users/me/playback-profiles")
+            .expect("current-user named playback profile collection route exists");
+        assert_eq!(named_profiles.kind, PublicClientRouteKind::Playback);
+        assert_eq!(
+            named_profiles.rust_sdk_exposure,
+            PublicClientRustSdkExposure::JsonMethod
+        );
+        assert_eq!(
+            named_profiles
+                .methods
+                .iter()
+                .map(|method| method.as_str())
+                .collect::<Vec<_>>(),
+            vec!["GET", "POST"]
+        );
+        let named_profile = PUBLIC_CLIENT_ROUTES
+            .iter()
+            .find(|route| route.path == "/users/me/playback-profiles/{profile_id}")
+            .expect("current-user named playback profile item route exists");
+        assert_eq!(named_profile.kind, PublicClientRouteKind::Playback);
+        assert_eq!(
+            named_profile.rust_sdk_exposure,
+            PublicClientRustSdkExposure::JsonMethod
+        );
+        assert_eq!(
+            named_profile
                 .methods
                 .iter()
                 .map(|method| method.as_str())
@@ -1269,6 +1322,80 @@ mod tests {
             "mp4"
         );
         assert!(response["preference"].get("principal_id").is_none());
+    }
+
+    #[test]
+    fn public_named_user_playback_profiles_use_current_user_plural_capability_contract() {
+        let create = serde_json::to_value(CreateUserPlaybackProfileRequest {
+            name: "Living Room TV".to_owned(),
+            is_default: Some(true),
+            capabilities: UserPlaybackProfileCapabilitiesRequest {
+                direct_play: Some(true),
+                device_family: Some("tv_webos".to_owned()),
+                profile_version: Some(1),
+                containers: Some(vec!["mp4".to_owned()]),
+                video_codecs: Some(vec!["h264".to_owned()]),
+                audio_codecs: Some(vec!["aac".to_owned()]),
+                hls_variant_policy: Some(ClientHlsVariantPolicy::Adaptive),
+                hls_segment_container: Some(ClientHlsSegmentContainer::Fmp4),
+                ..UserPlaybackProfileCapabilitiesRequest::default()
+            },
+        })
+        .unwrap();
+        let update = serde_json::to_value(UpdateUserPlaybackProfileRequest {
+            name: Some("Tablet".to_owned()),
+            is_default: Some(false),
+            capabilities: UserPlaybackProfileCapabilitiesRequest {
+                containers: Some(vec!["webm".to_owned()]),
+                video_codecs: Some(vec!["vp9".to_owned()]),
+                audio_codecs: Some(vec!["opus".to_owned()]),
+                ..UserPlaybackProfileCapabilitiesRequest::default()
+            },
+        })
+        .unwrap();
+        let profile = UserPlaybackProfileDto {
+            profile_id: "profile-1".to_owned(),
+            name: "Living Room TV".to_owned(),
+            capabilities: ClientPlaybackCapabilitiesDto {
+                direct_play: true,
+                device_family: Some("tv_webos".to_owned()),
+                profile_version: Some(1),
+                containers: vec!["mp4".to_owned()],
+                video_codecs: vec!["h264".to_owned()],
+                audio_codecs: vec!["aac".to_owned()],
+                hls_variant_policy: Some(ClientHlsVariantPolicy::Adaptive),
+                hls_segment_container: Some(ClientHlsSegmentContainer::Fmp4),
+                ..ClientPlaybackCapabilitiesDto::default()
+            },
+            is_default: true,
+            updated_at: "2026-06-17T00:00:00Z".to_owned(),
+            version: 1,
+        };
+        let list = serde_json::to_value(UserPlaybackProfilesResponse {
+            profiles: vec![profile.clone()],
+            page: PageInfo::new(50, 0, 1),
+        })
+        .unwrap();
+        let get = serde_json::to_value(UserPlaybackProfileResponse { profile }).unwrap();
+
+        assert_eq!(create["name"], "Living Room TV");
+        assert_eq!(create["is_default"], true);
+        assert_eq!(create["containers"][0], "mp4");
+        assert!(create.get("container").is_none());
+        assert!(create.get("capabilities").is_none());
+        assert!(create.get("principal_id").is_none());
+        assert!(create.get("user_id").is_none());
+        assert_eq!(update["name"], "Tablet");
+        assert_eq!(update["is_default"], false);
+        assert_eq!(update["video_codecs"][0], "vp9");
+        assert_eq!(list["profiles"][0]["profile_id"], "profile-1");
+        assert_eq!(
+            list["profiles"][0]["capabilities"]["audio_codecs"][0],
+            "aac"
+        );
+        assert_eq!(list["page"]["returned"], 1);
+        assert_eq!(get["profile"]["is_default"], true);
+        assert!(get["profile"].get("principal_id").is_none());
     }
 
     #[test]

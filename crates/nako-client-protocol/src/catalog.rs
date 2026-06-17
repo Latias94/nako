@@ -1101,6 +1101,33 @@ pub struct DeleteUserPlaybackProfilePreferenceResponse {
 }
 
 #[derive(Clone, Debug, Deserialize, PartialEq, Serialize)]
+pub struct UserPlaybackProfilesResponse {
+    pub profiles: Vec<UserPlaybackProfileDto>,
+    pub page: PageInfo,
+}
+
+#[derive(Clone, Debug, Deserialize, PartialEq, Serialize)]
+pub struct UserPlaybackProfileResponse {
+    pub profile: UserPlaybackProfileDto,
+}
+
+#[derive(Clone, Debug, Deserialize, PartialEq, Serialize)]
+pub struct UserPlaybackProfileDto {
+    pub profile_id: String,
+    pub name: String,
+    pub capabilities: ClientPlaybackCapabilitiesDto,
+    pub is_default: bool,
+    pub updated_at: String,
+    pub version: u64,
+}
+
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+pub struct DeleteUserPlaybackProfileResponse {
+    pub profile_id: String,
+    pub deleted: bool,
+}
+
+#[derive(Clone, Debug, Deserialize, PartialEq, Serialize)]
 pub struct ContinueWatchingResponse {
     pub items: Vec<ContinueWatchingItemDto>,
     pub page: PageInfo,
@@ -1220,6 +1247,57 @@ pub struct SetWatchedStateRequest {
 
 #[derive(Clone, Debug, Default, Deserialize, Eq, PartialEq, Serialize)]
 pub struct SetUserPlaybackProfilePreferenceRequest {
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub direct_play: Option<bool>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub device_family: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub profile_version: Option<u32>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub containers: Option<Vec<String>>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub video_codecs: Option<Vec<String>>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub audio_codecs: Option<Vec<String>>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub max_video_bitrate: Option<u64>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub max_width: Option<u32>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub max_height: Option<u32>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub max_audio_channels: Option<u32>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub supports_hdr: Option<bool>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub supports_subtitles: Option<bool>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub hls_variant_policy: Option<ClientHlsVariantPolicy>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub hls_segment_container: Option<ClientHlsSegmentContainer>,
+}
+
+#[derive(Clone, Debug, Default, Deserialize, Eq, PartialEq, Serialize)]
+pub struct CreateUserPlaybackProfileRequest {
+    pub name: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub is_default: Option<bool>,
+    #[serde(flatten)]
+    pub capabilities: UserPlaybackProfileCapabilitiesRequest,
+}
+
+#[derive(Clone, Debug, Default, Deserialize, Eq, PartialEq, Serialize)]
+pub struct UpdateUserPlaybackProfileRequest {
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub name: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub is_default: Option<bool>,
+    #[serde(flatten)]
+    pub capabilities: UserPlaybackProfileCapabilitiesRequest,
+}
+
+#[derive(Clone, Debug, Default, Deserialize, Eq, PartialEq, Serialize)]
+pub struct UserPlaybackProfileCapabilitiesRequest {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub direct_play: Option<bool>,
     #[serde(default, skip_serializing_if = "Option::is_none")]

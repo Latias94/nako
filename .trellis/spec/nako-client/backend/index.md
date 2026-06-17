@@ -61,6 +61,14 @@ transport and a reqwest implementation.
   `/users/me/playback-profile`. Re-export the request, response, preference
   DTO, and `ClientPlaybackCapabilitiesDto` types from `nako-client-protocol`
   so Rust SDK callers do not need a second dependency for the method result.
+- Current-user named playback profile methods must expose
+  `list_user_playback_profiles`, `create_user_playback_profile`,
+  `get_user_playback_profile`, `update_user_playback_profile`, and
+  `delete_user_playback_profile` against `/users/me/playback-profiles` and
+  `/users/me/playback-profiles/{profile_id}`. Re-export the named profile
+  request/response DTOs from `nako-client-protocol`, require auth on all
+  methods, preserve optional list pagination, and percent-encode `profile_id`
+  before inserting it into URLs.
 
 ## Forbidden Patterns
 

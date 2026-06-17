@@ -62,6 +62,8 @@ public val NAKO_PUBLIC_PATHS: List<String> = listOf(
     "/renderers/{renderer_session_id}/commands/play",
     "/renderers/{renderer_session_id}/commands/{command_id}/complete",
     "/users/me/playback-profile",
+    "/users/me/playback-profiles",
+    "/users/me/playback-profiles/{profile_id}",
     "/users/me/playback-state/items/{item_id}",
     "/users/me/playback-state/continue-watching",
     "/users/me/playback-state/items/{item_id}/progress",
@@ -591,6 +593,36 @@ public object NakoPublicClientRequests {
         NakoRequestDescriptor(
             method = "DELETE",
             pathAndQuery = "/users/me/playback-profile",
+        )
+
+    public fun listUserPlaybackProfiles(page: PageQuery = PageQuery()): NakoRequestDescriptor =
+        NakoRequestDescriptor(
+            method = "GET",
+            pathAndQuery = pathWithQuery("/users/me/playback-profiles", pageQuery(page)),
+        )
+
+    public fun createUserPlaybackProfile(): NakoRequestDescriptor =
+        NakoRequestDescriptor(
+            method = "POST",
+            pathAndQuery = "/users/me/playback-profiles",
+        )
+
+    public fun getUserPlaybackProfile(profileId: String): NakoRequestDescriptor =
+        NakoRequestDescriptor(
+            method = "GET",
+            pathAndQuery = "/users/me/playback-profiles/${encodePathSegment(profileId)}",
+        )
+
+    public fun updateUserPlaybackProfile(profileId: String): NakoRequestDescriptor =
+        NakoRequestDescriptor(
+            method = "PUT",
+            pathAndQuery = "/users/me/playback-profiles/${encodePathSegment(profileId)}",
+        )
+
+    public fun deleteUserPlaybackProfile(profileId: String): NakoRequestDescriptor =
+        NakoRequestDescriptor(
+            method = "DELETE",
+            pathAndQuery = "/users/me/playback-profiles/${encodePathSegment(profileId)}",
         )
 
     public fun listContinueWatching(page: PageQuery = PageQuery()): NakoRequestDescriptor =
@@ -2152,6 +2184,40 @@ public data class ContinueWatchingResponse(
 )
 
 @Serializable
+public data class CreateUserPlaybackProfileRequest(
+    @SerialName("audio_codecs")
+    public val audioCodecs: List<String>? = null,
+    public val containers: List<String>? = null,
+    @SerialName("device_family")
+    public val deviceFamily: String? = null,
+    @SerialName("direct_play")
+    public val directPlay: Boolean? = null,
+    @SerialName("hls_segment_container")
+    public val hlsSegmentContainer: ClientHlsSegmentContainer? = null,
+    @SerialName("hls_variant_policy")
+    public val hlsVariantPolicy: ClientHlsVariantPolicy? = null,
+    @SerialName("is_default")
+    public val isDefault: Boolean? = null,
+    @SerialName("max_audio_channels")
+    public val maxAudioChannels: Int? = null,
+    @SerialName("max_height")
+    public val maxHeight: Int? = null,
+    @SerialName("max_video_bitrate")
+    public val maxVideoBitrate: Long? = null,
+    @SerialName("max_width")
+    public val maxWidth: Int? = null,
+    public val name: String,
+    @SerialName("profile_version")
+    public val profileVersion: Int? = null,
+    @SerialName("supports_hdr")
+    public val supportsHdr: Boolean? = null,
+    @SerialName("supports_subtitles")
+    public val supportsSubtitles: Boolean? = null,
+    @SerialName("video_codecs")
+    public val videoCodecs: List<String>? = null,
+)
+
+@Serializable
 public data class CreateUserPlaylistRequest(
     public val name: String,
 )
@@ -2184,6 +2250,13 @@ public data class CurrentUserResponse(
 @Serializable
 public data class DeleteUserPlaybackProfilePreferenceResponse(
     public val deleted: Boolean,
+)
+
+@Serializable
+public data class DeleteUserPlaybackProfileResponse(
+    public val deleted: Boolean,
+    @SerialName("profile_id")
+    public val profileId: String,
 )
 
 @Serializable
@@ -2962,10 +3035,57 @@ public data class UpdatePlaybackProgressRequest(
 )
 
 @Serializable
+public data class UpdateUserPlaybackProfileRequest(
+    @SerialName("audio_codecs")
+    public val audioCodecs: List<String>? = null,
+    public val containers: List<String>? = null,
+    @SerialName("device_family")
+    public val deviceFamily: String? = null,
+    @SerialName("direct_play")
+    public val directPlay: Boolean? = null,
+    @SerialName("hls_segment_container")
+    public val hlsSegmentContainer: ClientHlsSegmentContainer? = null,
+    @SerialName("hls_variant_policy")
+    public val hlsVariantPolicy: ClientHlsVariantPolicy? = null,
+    @SerialName("is_default")
+    public val isDefault: Boolean? = null,
+    @SerialName("max_audio_channels")
+    public val maxAudioChannels: Int? = null,
+    @SerialName("max_height")
+    public val maxHeight: Int? = null,
+    @SerialName("max_video_bitrate")
+    public val maxVideoBitrate: Long? = null,
+    @SerialName("max_width")
+    public val maxWidth: Int? = null,
+    public val name: String? = null,
+    @SerialName("profile_version")
+    public val profileVersion: Int? = null,
+    @SerialName("supports_hdr")
+    public val supportsHdr: Boolean? = null,
+    @SerialName("supports_subtitles")
+    public val supportsSubtitles: Boolean? = null,
+    @SerialName("video_codecs")
+    public val videoCodecs: List<String>? = null,
+)
+
+@Serializable
 public data class UpdateUserPlaylistRequest(
     @SerialName("expected_version")
     public val expectedVersion: Long? = null,
     public val name: String,
+)
+
+@Serializable
+public data class UserPlaybackProfileDto(
+    public val capabilities: ClientPlaybackCapabilitiesDto,
+    @SerialName("is_default")
+    public val isDefault: Boolean,
+    public val name: String,
+    @SerialName("profile_id")
+    public val profileId: String,
+    @SerialName("updated_at")
+    public val updatedAt: String,
+    public val version: Long,
 )
 
 @Serializable
@@ -2979,6 +3099,17 @@ public data class UserPlaybackProfilePreferenceDto(
 @Serializable
 public data class UserPlaybackProfilePreferenceResponse(
     public val preference: UserPlaybackProfilePreferenceDto?,
+)
+
+@Serializable
+public data class UserPlaybackProfileResponse(
+    public val profile: UserPlaybackProfileDto,
+)
+
+@Serializable
+public data class UserPlaybackProfilesResponse(
+    public val page: PageInfo,
+    public val profiles: List<UserPlaybackProfileDto>,
 )
 
 @Serializable

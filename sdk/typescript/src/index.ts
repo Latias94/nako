@@ -53,6 +53,8 @@ export const NAKO_PUBLIC_PATHS = [
   "/renderers/{renderer_session_id}/commands/play",
   "/renderers/{renderer_session_id}/commands/{command_id}/complete",
   "/users/me/playback-profile",
+  "/users/me/playback-profiles",
+  "/users/me/playback-profiles/{profile_id}",
   "/users/me/playback-state/items/{item_id}",
   "/users/me/playback-state/continue-watching",
   "/users/me/playback-state/items/{item_id}/progress",
@@ -261,6 +263,25 @@ export interface ContinueWatchingResponse {
   page: PageInfo;
 }
 
+export interface CreateUserPlaybackProfileRequest {
+  audio_codecs?: Array<string> | null;
+  containers?: Array<string> | null;
+  device_family?: string | null;
+  direct_play?: boolean;
+  hls_segment_container?: ClientHlsSegmentContainer;
+  hls_variant_policy?: ClientHlsVariantPolicy;
+  is_default?: boolean;
+  max_audio_channels?: number | null;
+  max_height?: number | null;
+  max_video_bitrate?: number | null;
+  max_width?: number | null;
+  name: string;
+  profile_version?: number | null;
+  supports_hdr?: boolean;
+  supports_subtitles?: boolean;
+  video_codecs?: Array<string> | null;
+}
+
 export interface CreateUserPlaylistRequest {
   name: string;
 }
@@ -287,6 +308,11 @@ export interface CurrentUserResponse {
 
 export interface DeleteUserPlaybackProfilePreferenceResponse {
   deleted: boolean;
+}
+
+export interface DeleteUserPlaybackProfileResponse {
+  deleted: boolean;
+  profile_id: string;
 }
 
 export interface ErrorResponse {
@@ -813,9 +839,37 @@ export interface UpdatePlaybackProgressRequest {
   source_id?: string | null;
 }
 
+export interface UpdateUserPlaybackProfileRequest {
+  audio_codecs?: Array<string> | null;
+  containers?: Array<string> | null;
+  device_family?: string | null;
+  direct_play?: boolean;
+  hls_segment_container?: ClientHlsSegmentContainer;
+  hls_variant_policy?: ClientHlsVariantPolicy;
+  is_default?: boolean;
+  max_audio_channels?: number | null;
+  max_height?: number | null;
+  max_video_bitrate?: number | null;
+  max_width?: number | null;
+  name?: string;
+  profile_version?: number | null;
+  supports_hdr?: boolean;
+  supports_subtitles?: boolean;
+  video_codecs?: Array<string> | null;
+}
+
 export interface UpdateUserPlaylistRequest {
   expected_version?: number;
   name: string;
+}
+
+export interface UserPlaybackProfileDto {
+  capabilities: ClientPlaybackCapabilitiesDto;
+  is_default: boolean;
+  name: string;
+  profile_id: string;
+  updated_at: string;
+  version: number;
 }
 
 export interface UserPlaybackProfilePreferenceDto {
@@ -826,6 +880,15 @@ export interface UserPlaybackProfilePreferenceDto {
 
 export interface UserPlaybackProfilePreferenceResponse {
   preference: UserPlaybackProfilePreferenceDto | null;
+}
+
+export interface UserPlaybackProfileResponse {
+  profile: UserPlaybackProfileDto;
+}
+
+export interface UserPlaybackProfilesResponse {
+  page: PageInfo;
+  profiles: Array<UserPlaybackProfileDto>;
 }
 
 export interface UserPlaybackStateDto {
@@ -1199,6 +1262,26 @@ export class NakoClient {
 
   deleteUserPlaybackProfilePreference(): Promise<DeleteUserPlaybackProfilePreferenceResponse> {
     return this.requestJson("DELETE", "/users/me/playback-profile");
+  }
+
+  listUserPlaybackProfiles(page?: PageQuery): Promise<UserPlaybackProfilesResponse> {
+    return this.requestJson("GET", "/users/me/playback-profiles", { query: page });
+  }
+
+  createUserPlaybackProfile(body: CreateUserPlaybackProfileRequest): Promise<UserPlaybackProfileResponse> {
+    return this.requestJson("POST", "/users/me/playback-profiles", { body });
+  }
+
+  getUserPlaybackProfile(profileId: string): Promise<UserPlaybackProfileResponse> {
+    return this.requestJson("GET", `/users/me/playback-profiles/${encodeURIComponent(profileId)}`);
+  }
+
+  updateUserPlaybackProfile(profileId: string, body: UpdateUserPlaybackProfileRequest): Promise<UserPlaybackProfileResponse> {
+    return this.requestJson("PUT", `/users/me/playback-profiles/${encodeURIComponent(profileId)}`, { body });
+  }
+
+  deleteUserPlaybackProfile(profileId: string): Promise<DeleteUserPlaybackProfileResponse> {
+    return this.requestJson("DELETE", `/users/me/playback-profiles/${encodeURIComponent(profileId)}`);
   }
 
   listContinueWatching(page?: PageQuery): Promise<ContinueWatchingResponse> {

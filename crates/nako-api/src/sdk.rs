@@ -1062,6 +1062,36 @@ public object NakoPublicClientRequests {
             pathAndQuery = "/users/me/playback-profile",
         )
 
+    public fun listUserPlaybackProfiles(page: PageQuery = PageQuery()): NakoRequestDescriptor =
+        NakoRequestDescriptor(
+            method = "GET",
+            pathAndQuery = pathWithQuery("/users/me/playback-profiles", pageQuery(page)),
+        )
+
+    public fun createUserPlaybackProfile(): NakoRequestDescriptor =
+        NakoRequestDescriptor(
+            method = "POST",
+            pathAndQuery = "/users/me/playback-profiles",
+        )
+
+    public fun getUserPlaybackProfile(profileId: String): NakoRequestDescriptor =
+        NakoRequestDescriptor(
+            method = "GET",
+            pathAndQuery = "/users/me/playback-profiles/${encodePathSegment(profileId)}",
+        )
+
+    public fun updateUserPlaybackProfile(profileId: String): NakoRequestDescriptor =
+        NakoRequestDescriptor(
+            method = "PUT",
+            pathAndQuery = "/users/me/playback-profiles/${encodePathSegment(profileId)}",
+        )
+
+    public fun deleteUserPlaybackProfile(profileId: String): NakoRequestDescriptor =
+        NakoRequestDescriptor(
+            method = "DELETE",
+            pathAndQuery = "/users/me/playback-profiles/${encodePathSegment(profileId)}",
+        )
+
     public fun listContinueWatching(page: PageQuery = PageQuery()): NakoRequestDescriptor =
         NakoRequestDescriptor(
             method = "GET",
@@ -1691,6 +1721,26 @@ export class NakoClient {
     return this.requestJson("DELETE", "/users/me/playback-profile");
   }
 
+  listUserPlaybackProfiles(page?: PageQuery): Promise<UserPlaybackProfilesResponse> {
+    return this.requestJson("GET", "/users/me/playback-profiles", { query: page });
+  }
+
+  createUserPlaybackProfile(body: CreateUserPlaybackProfileRequest): Promise<UserPlaybackProfileResponse> {
+    return this.requestJson("POST", "/users/me/playback-profiles", { body });
+  }
+
+  getUserPlaybackProfile(profileId: string): Promise<UserPlaybackProfileResponse> {
+    return this.requestJson("GET", `/users/me/playback-profiles/${encodeURIComponent(profileId)}`);
+  }
+
+  updateUserPlaybackProfile(profileId: string, body: UpdateUserPlaybackProfileRequest): Promise<UserPlaybackProfileResponse> {
+    return this.requestJson("PUT", `/users/me/playback-profiles/${encodeURIComponent(profileId)}`, { body });
+  }
+
+  deleteUserPlaybackProfile(profileId: string): Promise<DeleteUserPlaybackProfileResponse> {
+    return this.requestJson("DELETE", `/users/me/playback-profiles/${encodeURIComponent(profileId)}`);
+  }
+
   listContinueWatching(page?: PageQuery): Promise<ContinueWatchingResponse> {
     return this.requestJson("GET", "/users/me/playback-state/continue-watching", { query: page });
   }
@@ -1912,6 +1962,11 @@ mod tests {
             "getUserPlaybackProfilePreference(",
             "setUserPlaybackProfilePreference(",
             "deleteUserPlaybackProfilePreference(",
+            "listUserPlaybackProfiles(",
+            "createUserPlaybackProfile(",
+            "getUserPlaybackProfile(",
+            "updateUserPlaybackProfile(",
+            "deleteUserPlaybackProfile(",
             "listContinueWatching(",
             "updateUserPlaybackProgress(",
             "setUserWatchedState(",
@@ -1964,6 +2019,19 @@ mod tests {
             "UserPlaylistItemsResponse",
             "CreateUserPlaylistRequest",
             "ReorderUserPlaylistItemsRequest",
+            "UserPlaybackProfilesResponse",
+            "UserPlaybackProfileResponse",
+            "UserPlaybackProfileDto",
+            "CreateUserPlaybackProfileRequest",
+            "UpdateUserPlaybackProfileRequest",
+            "DeleteUserPlaybackProfileResponse",
+            "profile_id: string",
+            "is_default: boolean",
+            "listUserPlaybackProfiles(page?: PageQuery)",
+            "createUserPlaybackProfile(body: CreateUserPlaybackProfileRequest)",
+            "getUserPlaybackProfile(profileId: string)",
+            "updateUserPlaybackProfile(profileId: string, body: UpdateUserPlaybackProfileRequest)",
+            "deleteUserPlaybackProfile(profileId: string)",
             "limit?: number",
             "offset?: number",
             "ImageVariantQuery",
@@ -2252,6 +2320,19 @@ mod tests {
             "public fun getUserPlaybackProfilePreference(): NakoRequestDescriptor",
             "public fun setUserPlaybackProfilePreference(): NakoRequestDescriptor",
             "public fun deleteUserPlaybackProfilePreference(): NakoRequestDescriptor",
+            "public data class UserPlaybackProfilesResponse",
+            "public data class UserPlaybackProfileResponse",
+            "public data class UserPlaybackProfileDto",
+            "public data class CreateUserPlaybackProfileRequest",
+            "public data class UpdateUserPlaybackProfileRequest",
+            "public data class DeleteUserPlaybackProfileResponse",
+            "public val profileId: String",
+            "public val isDefault: Boolean",
+            "public fun listUserPlaybackProfiles(page: PageQuery = PageQuery()): NakoRequestDescriptor",
+            "public fun createUserPlaybackProfile(): NakoRequestDescriptor",
+            "public fun getUserPlaybackProfile(profileId: String): NakoRequestDescriptor",
+            "public fun updateUserPlaybackProfile(profileId: String): NakoRequestDescriptor",
+            "public fun deleteUserPlaybackProfile(profileId: String): NakoRequestDescriptor",
             "public data class UserPlaybackStateResponse",
             "public data class UserPlaylistResponse",
             "public data class ErrorResponse",

@@ -434,7 +434,9 @@ Public Client exclusion tests.
   `sdk/kotlin/src/main/kotlin/dev/nako/sdk/NakoClientSdk.kt`, and Public Client
   route inventory tests.
 - Boundary: this is a Public Client current-user preference route, not Admin
-  playback policy management and not playback session runtime diagnostics.
+  playback policy management and not playback session runtime diagnostics. The
+  single route is a default named-profile compatibility facade, not the named
+  profile source-of-truth collection.
 
 ### 2. Signatures
 
@@ -523,6 +525,130 @@ Ok(UserPlaybackProfilePreferenceResponse {
 
 The API layer owns the stable wire projection. Persistence JSON is an internal
 storage detail.
+
+## Scenario: Public Client Named Playback Profiles Contract
+
+### 1. Scope / Trigger
+
+- Trigger: adding or changing the Public Client current-user named playback
+  profile collection or item API.
+- Scope: `nako-api::public_client` DTO re-exports and mapping helpers,
+  OpenAPI route/schema generation, TypeScript/Kotlin SDK generation,
+  `sdk/typescript/src/index.ts`,
+  `sdk/kotlin/src/main/kotlin/dev/nako/sdk/NakoClientSdk.kt`, and Public Client
+  route inventory tests.
+- Boundary: this is a Public Client current-user device/player profile
+  management surface. It must not expose Admin playback policy rows, playback
+  session runtime diagnostics, hardware probe facts, or internal principal
+  ownership.
+
+### 2. Signatures
+
+- OpenAPI paths:
+  - `/users/me/playback-profiles`
+  - `/users/me/playback-profiles/{profile_id}`
+- Methods:
+  - `GET /users/me/playback-profiles` operation id
+    `listUserPlaybackProfiles`
+  - `POST /users/me/playback-profiles` operation id
+    `createUserPlaybackProfile`
+  - `GET /users/me/playback-profiles/{profile_id}` operation id
+    `getUserPlaybackProfile`
+  - `PUT /users/me/playback-profiles/{profile_id}` operation id
+    `updateUserPlaybackProfile`
+  - `DELETE /users/me/playback-profiles/{profile_id}` operation id
+    `deleteUserPlaybackProfile`
+- Request schemas:
+  `CreateUserPlaybackProfileRequest` and
+  `UpdateUserPlaybackProfileRequest`.
+- Response schemas:
+  `UserPlaybackProfilesResponse`, `UserPlaybackProfileResponse`,
+  `UserPlaybackProfileDto`, and `DeleteUserPlaybackProfileResponse`.
+- Mapping helpers:
+  `user_playback_profiles_response_from_records(...) ->
+  Result<UserPlaybackProfilesResponse>` and
+  `user_playback_profile_response_from_record(...) ->
+  Result<UserPlaybackProfileResponse>`.
+
+### 3. Contracts
+
+- The routes must stay in Public Client OpenAPI/SDK outputs and out of Admin
+  route contracts.
+- All route paths use `/users/me`; neither schemas nor generated SDK methods
+  accept arbitrary user/principal IDs.
+- `profile_id` is an opaque path parameter in the URL only. It is returned in
+  response DTOs but must not be confused with a principal/user ID.
+- API mapping reads stored resolved capability JSON and projects it into
+  `ClientPlaybackCapabilitiesDto`. Do not return repository rows or
+  `capabilities_json` directly.
+- Create schema requires `name`; update schema makes `name`, `is_default`, and
+  capability fields optional.
+- Request capability fields are flattened and pluralized:
+  `containers`, `video_codecs`, and `audio_codecs`. Do not add a nested
+  `capabilities` request object to the Public Client contract in this version.
+- Generated TypeScript and Kotlin SDK package artifacts must be regenerated
+  from `nako-api`; do not hand-edit them to satisfy package-entry tests.
+- Public output must remain redaction-safe: no local path, source locator,
+  bearer token, FFmpeg command/runtime fact, hardware probe fact, operator
+  policy row, raw transcode internals, principal id, or user id.
+
+### 4. Validation & Error Matrix
+
+| Condition | Required behavior |
+|-----------|-------------------|
+| Public OpenAPI omits list/create/get/update/delete | Contract test fails |
+| OpenAPI list route omits `limit` and `offset` parameters | Contract test fails |
+| Generated SDK package omits any named profile method or DTO | Package-entry test fails |
+| Stored resolved JSON parses | Response contains resolved `capabilities`, `profile_id`, `name`, `is_default`, `updated_at`, and `version` |
+| Stored resolved JSON is invalid | Mapping returns an API error instead of silently emitting partial data |
+| Request schema exposes `principal_id`, `user_id`, source locator, path, token, FFmpeg, runtime, hardware, or policy fields | Contract violation |
+
+### 5. Good / Base / Bad Cases
+
+- Good: OpenAPI, TypeScript SDK, Kotlin SDK, Rust client protocol, Rust client,
+  and server route tests all agree on `/users/me/playback-profiles`.
+- Good: list responses wrap profiles in `UserPlaybackProfilesResponse` with
+  `PageInfo`.
+- Base: older clients keep using `/users/me/playback-profile` and observe the
+  default named profile through the compatibility facade.
+- Bad: generating a public method such as
+  `listUserPlaybackProfiles(userId)`.
+- Bad: exposing stored `capabilities_json` or internal repository rows in the
+  public response.
+
+### 6. Tests Required
+
+- Public OpenAPI route/schema test for both named profile paths, methods,
+  response schemas, request schemas, and `profile_id` path parameter.
+- SDK generator tests proving TypeScript and Kotlin package entries contain the
+  five named profile methods and DTOs.
+- Package drift tests proving generated TypeScript and Kotlin files match the
+  generators.
+- Public/Admin separation tests continue to reject Admin route leakage.
+- Server route tests cover current-user scoping, bounded list, create, read,
+  update, delete, default behavior, and unsupported additive HLS enum
+  rejection.
+
+### 7. Wrong vs Correct
+
+#### Wrong
+
+```rust
+Ok(UserPlaybackProfileResponse {
+    profile: repository_row,
+})
+```
+
+#### Correct
+
+```rust
+Ok(UserPlaybackProfileResponse {
+    profile: user_playback_profile_to_dto(profile)?,
+})
+```
+
+The API layer owns the public, redaction-safe named profile projection. Storage
+ownership, principal scoping, and persisted JSON stay behind the API boundary.
 
 ## Scenario: Admin VFS Cache Repair Preview, Plan, Targets, And Refresh
 

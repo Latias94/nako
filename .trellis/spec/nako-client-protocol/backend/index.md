@@ -30,7 +30,7 @@ independent from server internals.
 2. Signatures: public route inventory, `HealthResponse`, `ErrorResponse`,
    `PageInfo`, catalog DTOs, playback DTOs, renderer DTOs, and user state DTOs.
 3. Contracts: current public API version is `v1`; route inventory currently has
-   51 paths; streaming routes are explicitly marked `StreamingBuilder`.
+   52 paths; streaming routes are explicitly marked `StreamingBuilder`.
 4. Validation & Error Matrix: client-visible errors use `ClientErrorCode` string
    values; unknown additive wire strings decode to `Other(String)` where the
    enum uses `public_string_value!`.
@@ -67,11 +67,18 @@ independent from server internals.
   fields, and HLS output preferences, and keep runtime/operator facts out.
 - Keep current-user playback profile preference under
   `GET|PUT|DELETE /users/me/playback-profile`. The PUT request is a compact
-  preference body with plural capability-set fields (`containers`,
+  default-profile facade body with plural capability-set fields (`containers`,
   `video_codecs`, `audio_codecs`); the response returns a resolved
-  `ClientPlaybackCapabilitiesDto` plus `updated_at` and `version`.
-  The response must not expose principal ids, raw request JSON, local paths,
-  source locators, FFmpeg/runtime facts, or operator policy.
+  `ClientPlaybackCapabilitiesDto` plus `updated_at` and `version`. The response
+  must not expose principal ids, raw request JSON, local paths, source
+  locators, FFmpeg/runtime facts, or operator policy.
+- Keep current-user named playback profile CRUD under
+  `GET|POST /users/me/playback-profiles` and
+  `GET|PUT|DELETE /users/me/playback-profiles/{profile_id}`. Named profile
+  request bodies use a required `name` on create, optional `name` on update,
+  optional `is_default`, and flattened plural capability-set fields. Named
+  profile responses return `profile_id`, `name`, resolved `capabilities`,
+  `is_default`, `updated_at`, and `version`, plus `PageInfo` for list.
 
 ## Scenario: Current-User Playback Profile Preference Contract
 
@@ -186,6 +193,141 @@ pub struct SetUserPlaybackProfilePreferenceRequest {
 
 Current-user routes derive the principal from authentication and store an
 effective capability set, not a one-off playback query.
+
+## Scenario: Current-User Named Playback Profile Contract
+
+### 1. Scope / Trigger
+
+- Trigger: adding or changing the Public Client current-user named playback
+  profile CRUD route, DTOs, route inventory entry, generated OpenAPI/SDK
+  surface, or Rust client methods.
+- Scope:
+  `UserPlaybackProfilesResponse`, `UserPlaybackProfileResponse`,
+  `UserPlaybackProfileDto`, `CreateUserPlaybackProfileRequest`,
+  `UpdateUserPlaybackProfileRequest`,
+  `UserPlaybackProfileCapabilitiesRequest`,
+  `DeleteUserPlaybackProfileResponse`, `PUBLIC_CLIENT_ROUTES`, `nako-api`
+  OpenAPI/SDK generators, `nako-client-core`, and `nako-client`.
+
+### 2. Signatures
+
+- Routes:
+  - `GET /users/me/playback-profiles -> UserPlaybackProfilesResponse`
+  - `POST /users/me/playback-profiles + CreateUserPlaybackProfileRequest ->
+    UserPlaybackProfileResponse`
+  - `GET /users/me/playback-profiles/{profile_id} ->
+    UserPlaybackProfileResponse`
+  - `PUT /users/me/playback-profiles/{profile_id} +
+    UpdateUserPlaybackProfileRequest -> UserPlaybackProfileResponse`
+  - `DELETE /users/me/playback-profiles/{profile_id} ->
+    DeleteUserPlaybackProfileResponse`
+- Create request fields:
+  `name`, optional `is_default`, and flattened
+  `UserPlaybackProfileCapabilitiesRequest`.
+- Update request fields:
+  optional `name`, optional `is_default`, and flattened
+  `UserPlaybackProfileCapabilitiesRequest`.
+- Capability request fields:
+  `direct_play`, `device_family`, `profile_version`, `containers`,
+  `video_codecs`, `audio_codecs`, `max_video_bitrate`, `max_width`,
+  `max_height`, `max_audio_channels`, `supports_hdr`,
+  `supports_subtitles`, `hls_variant_policy`, and
+  `hls_segment_container`.
+- Response DTO:
+  `UserPlaybackProfileDto { profile_id, name, capabilities, is_default,
+  updated_at, version }`.
+
+### 3. Contracts
+
+- Routes are authenticated and always current-user scoped through `/users/me`;
+  request and response bodies must not accept or expose `principal_id` or
+  `user_id`.
+- Named profiles are the productized source-of-truth profile contract. The
+  single `/users/me/playback-profile` route is a compatibility facade for the
+  current user's default named profile.
+- The collection route is bounded and returns `PageInfo`; list response bodies
+  must not synthesize profiles outside the authenticated principal.
+- `profile_id` is an opaque server-owned path segment and must be percent
+  encoded by clients/builders when inserted into URLs.
+- Create requires `name`; update may leave `name`, `is_default`, and capability
+  fields absent so callers can replace only the fields they intend to change.
+- Capability-set fields are plural (`containers`, `video_codecs`,
+  `audio_codecs`) because stored profiles represent resolved effective
+  capability sets.
+- Additive HLS enums may deserialize as `Other(String)` in the protocol crate,
+  but the HTTP boundary rejects unsupported values before persistence.
+- Response capability DTOs remain client/player facts only. They must not
+  include source locators, local paths, bearer tokens, FFmpeg command/runtime
+  facts, hardware probe facts, operator policy, or raw transcode internals.
+
+### 4. Validation & Error Matrix
+
+| Condition | Required behavior |
+|-----------|-------------------|
+| No profiles exist for the current principal | Return an empty `profiles` array and `PageInfo` with `returned = 0` |
+| Create includes supported preset identity and capability overrides | Store resolved effective capabilities and return one `profile` DTO |
+| Create or update sets `is_default = true` | Server makes that profile the only default for the current principal |
+| Delete targets an existing profile | Return `deleted: true` with the same `profile_id` |
+| Delete targets a missing profile | Return a deterministic not-found or idempotent delete response as defined by the server route task; do not leak other principals |
+| Request contains `principal_id`, `user_id`, source locator, local path, token, FFmpeg, runtime, hardware, or policy facts | Contract violation |
+| Route is added without OpenAPI/SDK/client-core/client updates | Contract drift |
+
+### 5. Good/Base/Bad Cases
+
+- Good: a TV app creates `Living Room TV` with plural codec/container sets,
+  marks it default, and receives a resolved capability DTO plus version facts.
+- Good: a browser lists `/users/me/playback-profiles?limit=20&offset=0` and
+  receives only the authenticated principal's bounded profile page.
+- Base: older clients keep using `/users/me/playback-profile` and observe the
+  default named profile through the compatibility facade.
+- Bad: exposing another user's profile through
+  `/users/{principal_id}/playback-profiles`.
+- Bad: storing unresolved request JSON and returning it as the response
+  capability DTO.
+
+### 6. Tests Required
+
+- Protocol route inventory tests prove both named profile paths exist, have
+  JSON SDK exposure, and carry `GET|POST` / `GET|PUT|DELETE` methods.
+- Protocol serde-shape tests prove request bodies use plural capability-set
+  fields and response bodies omit principal/user identifiers.
+- API OpenAPI/SDK package-entry tests prove TypeScript and Kotlin generated
+  artifacts expose list/create/get/update/delete methods and DTOs.
+- Rust client-core tests prove request IDs, auth, page query, JSON body
+  behavior, and percent encoding of `{profile_id}`.
+- Rust client tests prove async methods use current-user paths and percent
+  encoded profile IDs.
+- Server route tests prove current-user scoping, bounded list, create, read,
+  update, delete, default selection, and unsupported additive HLS enum
+  rejection.
+
+### 7. Wrong vs Correct
+
+#### Wrong
+
+```rust
+pub struct UserPlaybackProfileDto {
+    pub principal_id: String,
+    pub capabilities_json: String,
+}
+```
+
+#### Correct
+
+```rust
+pub struct UserPlaybackProfileDto {
+    pub profile_id: String,
+    pub name: String,
+    pub capabilities: ClientPlaybackCapabilitiesDto,
+    pub is_default: bool,
+    pub updated_at: String,
+    pub version: u64,
+}
+```
+
+Public Client profile management exposes an opaque current-user profile
+contract. Internal principal ownership and persisted JSON stay behind the API
+boundary.
 
 ## Forbidden Patterns
 
