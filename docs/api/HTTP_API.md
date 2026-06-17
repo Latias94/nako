@@ -354,6 +354,15 @@ resolved effective capability payload, and returns that resolved payload to
 clients. It does not store item progress and it does not apply Admin playback
 policy.
 
+The saved preference is used as the current user's fallback client capability
+payload when a playback decision, direct stream or HEAD preflight, remux
+stream or HEAD preflight, or HLS playlist startup request omits explicit
+playback capability query fields. Any explicit capability query field on a
+request wins for that request and is not merged with the saved preference.
+Browser playback tickets, renderer transport URLs, and existing
+playback-session-bound media requests keep using the client context carried by
+their ticket or playback session.
+
 ```http
 GET /users/me/playback-profile
 ```

@@ -666,6 +666,16 @@ app.user_playlist()
   layer resolves compact preference input through the playback capability
   resolver, rejects unsupported additive HLS enum variants before storage, and
   returns a resolved capability DTO. It must not accept or echo `principal_id`.
+- Saved playback profile preferences are applied by playback routes only as the
+  authenticated principal's fallback client capabilities when a new playback
+  decision, Direct Play stream/preflight, Remux stream/preflight, or HLS
+  playlist startup request provides no explicit capability query field.
+  Explicit capability query fields are authoritative and must not be merged
+  with the saved preference.
+- Browser playback tickets, renderer transport requests, and existing
+  playback-session-bound media requests keep using the client context already
+  carried by the ticket/session path; they must not be replanned from the saved
+  current-user preference.
 
 ### 4. Validation & Error Matrix
 
@@ -676,6 +686,10 @@ app.user_playlist()
 | Write uses source from another item after access passes | `NakoError::InvalidInput` mentioning source/item mismatch |
 | Continue-watching state exists for inaccessible item | list omits it and backfills visible rows before pagination |
 | Administrator reads or writes source-less/multi-source item | Preserve administrator access semantics |
+| Playback decision or new stream startup omits capability query fields and the current principal has a saved profile preference | Use the saved resolved capability payload before planning or creating the playback session |
+| Playback request includes any explicit capability query field | Resolve from query fields and ignore the saved preference |
+| Browser ticket, renderer transport, or existing playback session route is used | Preserve the ticket/session client context and do not read the saved preference |
+| Stored preference JSON is invalid | Return a server-side data error instead of silently falling back to defaults |
 
 ### 5. Good / Base / Bad Cases
 
@@ -684,12 +698,17 @@ app.user_playlist()
 - Good: playback profile preference PUT resolves compact inputs, persists only
   the resolved effective capability JSON, and returns `preference: null` or a
   resolved preference DTO.
+- Good: playback decision and new Direct Play/Remux/HLS startup requests with
+  no capability query fields load the current principal's saved resolved
+  profile before falling back to default capabilities.
 - Base: continue-watching route calls
   `list_continue_watching_entries(&principal, page)`.
 - Bad: route checks Play access with `require_item_access`, then the app
   service writes user playback state without knowing the caller principal.
 - Bad: HTTP accepts unsupported additive HLS enum variants, stores unresolved
   preference JSON, or exposes another principal's preference by identifier.
+- Bad: merging saved preferences with explicit capability query fields, or
+  re-resolving browser ticket/session-bound playback from saved preferences.
 
 ### 6. Tests Required
 
@@ -699,6 +718,9 @@ app.user_playlist()
 - Route test preserving source-from-another-item `400 invalid_input` behavior.
 - HTTP route test proving `/users/me/playback-profile` rejects unsupported HLS
   enum variants and round-trips resolved preference DTOs.
+- Playback route tests proving saved preferences affect decision, Direct
+  Play, Remux, and HLS startup only when explicit capability query fields are
+  absent.
 - Focused gate:
   `cargo nextest run -p nako-server user_playback --no-fail-fast`.
 

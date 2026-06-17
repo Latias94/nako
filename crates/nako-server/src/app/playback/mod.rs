@@ -12,11 +12,12 @@ use nako_core::{
     Result, StagingManifestRepository, TranscodeFailureCategory, TranscodeSessionId,
     TranscodeSessionKind, TranscodeSessionListFilter, TranscodeSessionRecord,
     TranscodeSessionRepository, TranscodeSessionRuntimeMetrics, TranscodeSessionState, UserId,
-    UserPrincipalId,
+    UserPlaybackProfilePreference, UserPlaybackProfilePreferenceRepository, UserPrincipalId,
 };
 use nako_playback::{
-    ClientPlaybackCapabilities, EffectivePlaybackPolicy, PlaybackDecision, PlaybackPlanner,
-    PlaybackPlanningRequest, PlaybackPreferenceContext, PlaybackSelectionContext, PlaybackTarget,
+    ClientPlaybackCapabilities, ClientPlaybackCapabilityRequest, EffectivePlaybackPolicy,
+    PlaybackDecision, PlaybackPlanner, PlaybackPlanningRequest, PlaybackPreferenceContext,
+    PlaybackSelectionContext, PlaybackTarget,
 };
 use nako_streaming::{DirectPlayRangeRequest, DirectPlayResponsePlan};
 use nako_transcode::{HlsPlaybackGeneration, RemuxContainer};
@@ -95,6 +96,11 @@ pub(crate) trait PlaybackRuntimeStore: std::fmt::Debug + Send + Sync {
         user_id: UserId,
         library_id: nako_core::LibraryId,
     ) -> Result<EffectivePlaybackPolicy>;
+
+    async fn get_user_playback_profile_preference(
+        &self,
+        principal_id: &UserPrincipalId,
+    ) -> Result<Option<UserPlaybackProfilePreference>>;
 
     async fn create_playback_session(
         &self,
@@ -197,6 +203,7 @@ where
         + PlaybackPolicyRepository
         + PlaybackSessionRepository
         + TranscodeSessionRepository
+        + UserPlaybackProfilePreferenceRepository
         + std::fmt::Debug
         + Send
         + Sync,
@@ -215,6 +222,17 @@ where
         library_id: nako_core::LibraryId,
     ) -> Result<EffectivePlaybackPolicy> {
         PlaybackPolicyRepository::resolve_effective_playback_policy(self, user_id, library_id).await
+    }
+
+    async fn get_user_playback_profile_preference(
+        &self,
+        principal_id: &UserPrincipalId,
+    ) -> Result<Option<UserPlaybackProfilePreference>> {
+        UserPlaybackProfilePreferenceRepository::get_user_playback_profile_preference(
+            self,
+            principal_id,
+        )
+        .await
     }
 
     async fn create_playback_session(
@@ -743,6 +761,22 @@ impl PlaybackAppService {
         Ok(playback_decision_response_to_dto(
             source, probe, target, decision,
         ))
+    }
+
+    pub(crate) async fn default_client_capabilities_for_principal(
+        &self,
+        principal: &AuthenticatedPrincipal,
+    ) -> Result<ClientPlaybackCapabilities> {
+        let Some(preference) = PlaybackRuntimeStore::get_user_playback_profile_preference(
+            self.runtime_store.as_ref(),
+            &principal.principal_id,
+        )
+        .await?
+        else {
+            return Ok(ClientPlaybackCapabilityRequest::default().resolve());
+        };
+
+        client_capabilities_from_playback_profile_preference(&preference)
     }
 
     pub(crate) async fn validate_browser_playback_ticket_request(
@@ -1676,6 +1710,16 @@ fn playback_session_not_found(session_id: PlaybackSessionId) -> NakoError {
     }
 }
 
+fn client_capabilities_from_playback_profile_preference(
+    preference: &UserPlaybackProfilePreference,
+) -> Result<ClientPlaybackCapabilities> {
+    serde_json::from_str::<ClientPlaybackCapabilities>(&preference.capabilities_json).map_err(
+        |err| NakoError::Database {
+            message: format!("invalid stored playback capability JSON: {err}"),
+        },
+    )
+}
+
 fn subtitle_stream_for_probe(
     probe: &MediaProbeResult,
     stream_index: u32,
@@ -1824,6 +1868,57 @@ mod tests {
             artwork: crate::config::ArtworkConfig::default(),
             libraries: Vec::new(),
         }
+    }
+
+    #[test]
+    fn stored_playback_profile_preference_json_deserializes_to_client_capabilities() {
+        let preference = UserPlaybackProfilePreference {
+            principal_id: UserPrincipalId::local_admin(),
+            capabilities_json: serde_json::to_string(
+                &ClientPlaybackCapabilityRequest {
+                    device_family: Some("browser_chromium".to_owned()),
+                    profile_version: Some(1),
+                    ..ClientPlaybackCapabilityRequest::default()
+                }
+                .resolve(),
+            )
+            .unwrap(),
+            updated_at_ms: 1,
+            version: 1,
+        };
+
+        let capabilities =
+            client_capabilities_from_playback_profile_preference(&preference).unwrap();
+
+        assert_eq!(
+            capabilities.device_family.as_deref(),
+            Some("browser_chromium")
+        );
+        assert_eq!(capabilities.profile_version, Some(1));
+        assert!(
+            !capabilities
+                .video_codecs
+                .iter()
+                .any(|codec| codec == "hevc")
+        );
+    }
+
+    #[test]
+    fn stored_playback_profile_preference_json_errors_when_invalid() {
+        let preference = UserPlaybackProfilePreference {
+            principal_id: UserPrincipalId::local_admin(),
+            capabilities_json: "not-json".to_owned(),
+            updated_at_ms: 1,
+            version: 1,
+        };
+
+        let err = client_capabilities_from_playback_profile_preference(&preference).unwrap_err();
+
+        assert!(matches!(err, NakoError::Database { .. }));
+        assert!(
+            err.to_string()
+                .contains("invalid stored playback capability JSON")
+        );
     }
 
     #[test]

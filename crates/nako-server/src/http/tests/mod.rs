@@ -170,8 +170,9 @@ use nako_core::{
 };
 use nako_db::NakoDatabase;
 use nako_playback::{
-    ClientPlaybackCapabilities, PlaybackPreferenceContext, PlaybackSelectionContext,
-    PlaybackStorageContext, PlaybackTargetProfile, PlaybackTranscodeContainer,
+    ClientPlaybackCapabilities, PlaybackHlsSegmentContainer, PlaybackHlsVariantPolicy,
+    PlaybackPreferenceContext, PlaybackSelectionContext, PlaybackStorageContext,
+    PlaybackTargetProfile, PlaybackTranscodeContainer,
 };
 use nako_search::{SearchDocument, SearchIndex, SearchQuery};
 use nako_streaming::{DirectPlayRangeRequest, RequestedByteRange, plan_direct_play_response};

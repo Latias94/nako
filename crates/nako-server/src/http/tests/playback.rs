@@ -27,6 +27,85 @@ fn ticket_param(url: &str) -> &str {
         .expect("browser playback URL contains ticket query parameter")
 }
 
+async fn save_chromium_playback_profile_preference(router: &Router) {
+    let response =
+        request_body_json::<nako_api::public_client::UserPlaybackProfilePreferenceResponse, _>(
+            router,
+            Method::PUT,
+            "/users/me/playback-profile",
+            &nako_api::public_client::SetUserPlaybackProfilePreferenceRequest {
+                device_family: Some("browser_chromium".to_owned()),
+                profile_version: Some(1),
+                ..nako_api::public_client::SetUserPlaybackProfilePreferenceRequest::default()
+            },
+        )
+        .await;
+
+    let capabilities = &response
+        .preference
+        .expect("preference should be saved")
+        .capabilities;
+    assert_eq!(
+        capabilities.device_family.as_deref(),
+        Some("browser_chromium")
+    );
+    assert_eq!(capabilities.profile_version, Some(1));
+    assert!(
+        !capabilities
+            .video_codecs
+            .iter()
+            .any(|codec| codec == "hevc")
+    );
+}
+
+async fn save_hls_mpeg_ts_playback_profile_preference(router: &Router) {
+    let response = request_body_json::<
+        nako_api::public_client::UserPlaybackProfilePreferenceResponse,
+        _,
+    >(
+        router,
+        Method::PUT,
+        "/users/me/playback-profile",
+        &nako_api::public_client::SetUserPlaybackProfilePreferenceRequest {
+            device_family: Some("saved_hls_ts".to_owned()),
+            profile_version: Some(1),
+            hls_variant_policy: Some(
+                nako_api::public_client::ClientHlsVariantPolicy::SingleVariant,
+            ),
+            hls_segment_container: Some(nako_api::public_client::ClientHlsSegmentContainer::MpegTs),
+            ..nako_api::public_client::SetUserPlaybackProfilePreferenceRequest::default()
+        },
+    )
+    .await;
+
+    let capabilities = &response
+        .preference
+        .expect("preference should be saved")
+        .capabilities;
+    assert_eq!(capabilities.device_family.as_deref(), Some("saved_hls_ts"));
+    assert_eq!(capabilities.profile_version, Some(1));
+    assert_eq!(
+        capabilities.hls_variant_policy,
+        Some(nako_api::public_client::ClientHlsVariantPolicy::SingleVariant)
+    );
+    assert_eq!(
+        capabilities.hls_segment_container,
+        Some(nako_api::public_client::ClientHlsSegmentContainer::MpegTs)
+    );
+}
+
+fn playback_session_client_capabilities(
+    session: &PlaybackSessionRecord,
+) -> ClientPlaybackCapabilities {
+    serde_json::from_str(
+        session
+            .client_capabilities_json
+            .as_deref()
+            .expect("playback session should persist client capabilities"),
+    )
+    .unwrap()
+}
+
 fn sidecar_subtitle_stream(index: u32, language: &str, codec: &str) -> MediaStreamInfo {
     MediaStreamInfo {
         index,
@@ -676,6 +755,91 @@ async fn playback_decision_route_resolves_profile_identity_to_capability_baselin
 }
 
 #[tokio::test]
+async fn playback_decision_route_uses_saved_profile_when_query_omits_capabilities() {
+    let (_temp, router, source, store) =
+        router_with_media_source("saved-profile-hevc.mp4", b"media").await;
+    let mut probe = compatible_probe();
+    probe.container = Some("mov,mp4,m4a,3gp,3g2,mj2".to_owned());
+    if let Some(video) = probe
+        .streams
+        .iter_mut()
+        .find(|stream| matches!(stream.kind, MediaStreamKind::Video))
+    {
+        video.codec = Some("hevc".to_owned());
+    }
+    store.upsert_media_probe(source.id, &probe).await.unwrap();
+    save_chromium_playback_profile_preference(&router).await;
+
+    let decision = request_json::<nako_api::public_client::PlaybackDecisionResponse>(
+        &router,
+        Method::GET,
+        &format!("/sources/{}/playback/decision", source.id),
+    )
+    .await;
+    let video_codec_unsupported =
+        nako_api::public_client::ClientPlaybackCompatibilityCondition::VideoCodecUnsupported;
+
+    assert_eq!(
+        decision.decision.mode,
+        nako_api::public_client::ClientPlaybackMode::Transcode
+    );
+    assert_eq!(
+        decision.decision.report.selection_reasons,
+        vec![video_codec_unsupported.clone()]
+    );
+    assert!(
+        decision
+            .decision
+            .report
+            .direct_play
+            .reasons
+            .contains(&video_codec_unsupported)
+    );
+
+    let explicit_override = request_json::<nako_api::public_client::PlaybackDecisionResponse>(
+        &router,
+        Method::GET,
+        &format!("/sources/{}/playback/decision?video_codec=hevc", source.id),
+    )
+    .await;
+
+    assert_eq!(
+        explicit_override.decision.mode,
+        nako_api::public_client::ClientPlaybackMode::DirectPlay
+    );
+    assert!(explicit_override.decision.report.direct_play.supported);
+}
+
+#[tokio::test]
+async fn playback_decision_route_uses_default_capabilities_without_saved_profile() {
+    let (_temp, router, source, store) =
+        router_with_media_source("default-profile-hevc.mp4", b"media").await;
+    let mut probe = compatible_probe();
+    probe.container = Some("mov,mp4,m4a,3gp,3g2,mj2".to_owned());
+    if let Some(video) = probe
+        .streams
+        .iter_mut()
+        .find(|stream| matches!(stream.kind, MediaStreamKind::Video))
+    {
+        video.codec = Some("hevc".to_owned());
+    }
+    store.upsert_media_probe(source.id, &probe).await.unwrap();
+
+    let decision = request_json::<nako_api::public_client::PlaybackDecisionResponse>(
+        &router,
+        Method::GET,
+        &format!("/sources/{}/playback/decision", source.id),
+    )
+    .await;
+
+    assert_eq!(
+        decision.decision.mode,
+        nako_api::public_client::ClientPlaybackMode::DirectPlay
+    );
+    assert!(decision.decision.report.direct_play.supported);
+}
+
+#[tokio::test]
 async fn playback_decision_route_allows_explicit_capability_overrides_after_profile_baseline() {
     let (_temp, app, source, store) =
         app_with_media_source_config("profile-hevc-override.mp4", b"media", |_| {}).await;
@@ -1252,7 +1416,8 @@ async fn direct_stream_route_records_playback_session_without_transcode_artifact
     assert_eq!(session.mode, PlaybackSessionMode::Direct);
     assert_eq!(session.state, PlaybackSessionState::Active);
     assert!(session.transcode_session_id.is_none());
-    assert!(session.client_capabilities_json.is_some());
+    let capabilities = playback_session_client_capabilities(&session);
+    assert_eq!(capabilities, ClientPlaybackCapabilities::default());
 
     let transcode_artifacts = store
         .list_transcode_sessions(
@@ -1269,6 +1434,85 @@ async fn direct_stream_route_records_playback_session_without_transcode_artifact
         transcode_artifacts.is_empty(),
         "direct play must not create fake transcode artifacts"
     );
+}
+
+#[tokio::test]
+async fn direct_stream_routes_use_saved_profile_for_new_sessions() {
+    let (_temp, router, source, store) =
+        router_with_media_source("direct-saved-profile.mp4", b"0123456789").await;
+    save_chromium_playback_profile_preference(&router).await;
+
+    let head = router
+        .clone()
+        .oneshot(
+            Request::builder()
+                .method(Method::HEAD)
+                .uri(format!("/sources/{}/stream", source.id))
+                .body(Body::empty())
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+    assert_eq!(head.status(), StatusCode::OK);
+    let head_session_id = head
+        .headers()
+        .get(PLAYBACK_SESSION_ID_HEADER)
+        .and_then(|value| value.to_str().ok())
+        .expect("direct HEAD should expose playback session id")
+        .parse()
+        .unwrap();
+    let head_session = store
+        .get_playback_session(head_session_id)
+        .await
+        .unwrap()
+        .expect("direct HEAD session should be persisted");
+    let head_capabilities = playback_session_client_capabilities(&head_session);
+    assert_eq!(
+        head_capabilities.device_family.as_deref(),
+        Some("browser_chromium")
+    );
+    assert_eq!(head_capabilities.profile_version, Some(1));
+    assert!(
+        !head_capabilities
+            .video_codecs
+            .iter()
+            .any(|codec| codec == "hevc")
+    );
+    assert!(
+        to_bytes(head.into_body(), usize::MAX)
+            .await
+            .unwrap()
+            .is_empty()
+    );
+
+    let get = router
+        .oneshot(
+            Request::builder()
+                .method(Method::GET)
+                .uri(format!("/sources/{}/stream", source.id))
+                .header(header::RANGE, "bytes=2-5")
+                .body(Body::empty())
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+    assert_eq!(get.status(), StatusCode::PARTIAL_CONTENT);
+    let get_session_id = get
+        .headers()
+        .get(PLAYBACK_SESSION_ID_HEADER)
+        .and_then(|value| value.to_str().ok())
+        .expect("direct GET should expose playback session id")
+        .parse()
+        .unwrap();
+    let get_session = store
+        .get_playback_session(get_session_id)
+        .await
+        .unwrap()
+        .expect("direct GET session should be persisted");
+    let get_capabilities = playback_session_client_capabilities(&get_session);
+    assert_eq!(get_capabilities, head_capabilities);
+    let bytes = to_bytes(get.into_body(), usize::MAX).await.unwrap();
+    assert_eq!(&bytes[..], b"2345");
 }
 
 #[tokio::test]
@@ -2111,6 +2355,56 @@ async fn remux_stream_route_runs_and_reuses_completed_output() {
 }
 
 #[tokio::test]
+async fn remux_stream_route_uses_saved_profile_for_new_session() {
+    let (_temp, router, source, _staging_root, _ffmpeg_path, _marker, store) =
+        router_with_remux_source(false).await;
+    save_chromium_playback_profile_preference(&router).await;
+    let path = format!("/sources/{}/stream/remux?output_container=mp4", source.id);
+
+    let response = router
+        .oneshot(
+            Request::builder()
+                .method(Method::GET)
+                .uri(&path)
+                .body(Body::empty())
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+
+    assert_eq!(response.status(), StatusCode::OK);
+    let session_id: PlaybackSessionId = response
+        .headers()
+        .get(PLAYBACK_SESSION_ID_HEADER)
+        .and_then(|value| value.to_str().ok())
+        .expect("remux stream should expose playback session id")
+        .parse()
+        .unwrap();
+    let bytes = to_bytes(response.into_body(), usize::MAX).await.unwrap();
+    assert_eq!(&bytes[..], b"remuxed");
+
+    let session = store
+        .get_playback_session(session_id)
+        .await
+        .unwrap()
+        .expect("remux session should be persisted");
+    assert_eq!(session.mode, PlaybackSessionMode::Remux);
+    assert!(session.transcode_session_id.is_some());
+    let capabilities = playback_session_client_capabilities(&session);
+    assert_eq!(
+        capabilities.device_family.as_deref(),
+        Some("browser_chromium")
+    );
+    assert_eq!(capabilities.profile_version, Some(1));
+    assert!(
+        !capabilities
+            .video_codecs
+            .iter()
+            .any(|codec| codec == "hevc")
+    );
+}
+
+#[tokio::test]
 async fn browser_playback_ticket_streams_remux_bytes() {
     let (_temp, router, source, _staging_root, _ffmpeg_path, _marker, _store) =
         router_with_remux_source(false).await;
@@ -2230,6 +2524,49 @@ async fn head_remux_stream_route_exposes_session_without_body() {
     );
     let bytes = to_bytes(response.into_body(), usize::MAX).await.unwrap();
     assert!(bytes.is_empty());
+}
+
+#[tokio::test]
+async fn head_remux_stream_route_uses_saved_profile_for_new_session() {
+    let (_temp, router, source, _staging_root, _ffmpeg_path, _marker, store) =
+        router_with_remux_source(false).await;
+    save_chromium_playback_profile_preference(&router).await;
+    let path = format!("/sources/{}/stream/remux?output_container=mp4", source.id);
+
+    let response = router
+        .oneshot(
+            Request::builder()
+                .method(Method::HEAD)
+                .uri(&path)
+                .body(Body::empty())
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+
+    assert_eq!(response.status(), StatusCode::OK);
+    let session_id: PlaybackSessionId = response
+        .headers()
+        .get(PLAYBACK_SESSION_ID_HEADER)
+        .and_then(|value| value.to_str().ok())
+        .expect("remux HEAD should expose playback session id")
+        .parse()
+        .unwrap();
+    let bytes = to_bytes(response.into_body(), usize::MAX).await.unwrap();
+    assert!(bytes.is_empty());
+
+    let session = store
+        .get_playback_session(session_id)
+        .await
+        .unwrap()
+        .expect("remux HEAD session should be persisted");
+    assert_eq!(session.mode, PlaybackSessionMode::Remux);
+    let capabilities = playback_session_client_capabilities(&session);
+    assert_eq!(
+        capabilities.device_family.as_deref(),
+        Some("browser_chromium")
+    );
+    assert_eq!(capabilities.profile_version, Some(1));
 }
 
 #[tokio::test]
@@ -2853,6 +3190,60 @@ async fn hls_playlist_and_segment_routes_work() {
         .unwrap();
 
     assert_eq!(missing.status(), StatusCode::NOT_FOUND);
+}
+
+#[tokio::test]
+async fn hls_playlist_route_uses_saved_profile_for_new_session() {
+    let (_temp, router, source, store) = router_with_hls_source().await;
+    save_hls_mpeg_ts_playback_profile_preference(&router).await;
+    let playlist_path = format!("/sources/{}/stream/hls/playlist.m3u8", source.id);
+
+    let response = router
+        .oneshot(
+            Request::builder()
+                .method(Method::GET)
+                .uri(&playlist_path)
+                .body(Body::empty())
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+
+    assert_eq!(response.status(), StatusCode::OK);
+    let session_id: PlaybackSessionId = response
+        .headers()
+        .get(PLAYBACK_SESSION_ID_HEADER)
+        .and_then(|value| value.to_str().ok())
+        .expect("hls playlist should expose playback session id")
+        .parse()
+        .unwrap();
+    let body = String::from_utf8(
+        to_bytes(response.into_body(), usize::MAX)
+            .await
+            .unwrap()
+            .to_vec(),
+    )
+    .unwrap();
+    assert!(body.contains(&format!("/playback/sessions/{session_id}/hls/segments/")));
+
+    let session = store
+        .get_playback_session(session_id)
+        .await
+        .unwrap()
+        .expect("hls playback session should be persisted");
+    assert_eq!(session.mode, PlaybackSessionMode::Hls);
+    assert!(session.transcode_session_id.is_some());
+    let capabilities = playback_session_client_capabilities(&session);
+    assert_eq!(capabilities.device_family.as_deref(), Some("saved_hls_ts"));
+    assert_eq!(capabilities.profile_version, Some(1));
+    assert_eq!(
+        capabilities.hls_variant_policy,
+        PlaybackHlsVariantPolicy::SingleVariant
+    );
+    assert_eq!(
+        capabilities.hls_segment_container,
+        PlaybackHlsSegmentContainer::MpegTs
+    );
 }
 
 #[tokio::test]

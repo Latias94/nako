@@ -108,7 +108,11 @@ pub(super) async fn get_source_playback_decision(
 ) -> ApiResult<impl IntoResponse> {
     Ok(Json(
         app.playback()
-            .get_source_playback_decision(&principal, source_id, query.into_client_capabilities())
+            .get_source_playback_decision(
+                &principal,
+                source_id,
+                client_capabilities_for_query_or_preference(&app, &principal, query).await?,
+            )
             .await?,
     ))
 }
@@ -271,12 +275,16 @@ pub(super) async fn stream_source(
             })
             .await?
     } else {
+        let client = app
+            .playback()
+            .default_client_capabilities_for_principal(&source_playback.principal)
+            .await?;
         app.playback()
             .direct_playback_stream(DirectPlaybackStreamRequest {
                 principal: source_playback.principal,
                 source_id,
                 range_request: direct_play_range_request(&headers),
-                client: ClientPlaybackCapabilities::default(),
+                client,
             })
             .await?
     };
@@ -357,13 +365,17 @@ pub(super) async fn head_stream_source(
 
         return Ok(response);
     } else {
+        let client = app
+            .playback()
+            .default_client_capabilities_for_principal(&source_playback.principal)
+            .await?;
         let direct_play = app
             .playback()
             .direct_playback_preflight(DirectPlaybackPreflightRequest {
                 principal: source_playback.principal,
                 source_id,
                 range_request: direct_play_range_request(&headers),
-                client: ClientPlaybackCapabilities::default(),
+                client,
             })
             .await?;
         let mut response = empty_direct_play_response(&direct_play.response);
@@ -439,7 +451,12 @@ pub(super) async fn remux_stream_source(
             })
             .await?
     } else {
-        let client = query.capabilities().into_client_capabilities();
+        let client = client_capabilities_for_query_or_preference(
+            &app,
+            &source_playback.principal,
+            query.capabilities(),
+        )
+        .await?;
         app.playback()
             .remux_playback_stream(RemuxPlaybackStreamRequest {
                 principal: source_playback.principal,
@@ -525,7 +542,12 @@ pub(super) async fn head_remux_stream_source(
         insert_playback_session_header(&mut response, remux.session.id);
         return Ok(response);
     } else {
-        let client = query.capabilities().into_client_capabilities();
+        let client = client_capabilities_for_query_or_preference(
+            &app,
+            &source_playback.principal,
+            query.capabilities(),
+        )
+        .await?;
         let remux = app
             .playback()
             .remux_playback_preflight(RemuxPlaybackPreflightRequest {
@@ -609,7 +631,12 @@ pub(super) async fn hls_playlist_source(
             })
             .await?
     } else {
-        let client = query.capabilities().into_client_capabilities();
+        let client = client_capabilities_for_query_or_preference(
+            &app,
+            &source_playback.principal,
+            query.capabilities(),
+        )
+        .await?;
         app.playback()
             .hls_playlist_playback(HlsPlaylistPlaybackRequest {
                 principal: source_playback.principal,
@@ -988,6 +1015,21 @@ fn browser_capabilities_to_client(
         hls_segment_container,
     }
     .resolve())
+}
+
+async fn client_capabilities_for_query_or_preference(
+    app: &NakoApp,
+    principal: &AuthenticatedPrincipal,
+    query: PlaybackCapabilitiesQuery,
+) -> ApiResult<ClientPlaybackCapabilities> {
+    if query.has_explicit_capability_fields() {
+        return Ok(query.into_client_capabilities());
+    }
+
+    Ok(app
+        .playback()
+        .default_client_capabilities_for_principal(principal)
+        .await?)
 }
 
 #[derive(Clone, Debug)]
@@ -1445,6 +1487,23 @@ pub(super) struct BrowserPlaybackTicketQuery {
 }
 
 impl PlaybackCapabilitiesQuery {
+    fn has_explicit_capability_fields(&self) -> bool {
+        self.direct_play.is_some()
+            || self.device_family.is_some()
+            || self.profile_version.is_some()
+            || self.container.is_some()
+            || self.video_codec.is_some()
+            || self.audio_codec.is_some()
+            || self.max_video_bitrate.is_some()
+            || self.max_width.is_some()
+            || self.max_height.is_some()
+            || self.max_audio_channels.is_some()
+            || self.supports_hdr.is_some()
+            || self.supports_subtitles.is_some()
+            || self.hls_variant_policy.is_some()
+            || self.hls_segment_container.is_some()
+    }
+
     fn into_client_capabilities(self) -> ClientPlaybackCapabilities {
         ClientPlaybackCapabilityRequest {
             direct_play: self.direct_play,
@@ -1637,6 +1696,42 @@ mod tests {
             renderer_ticket: None,
         };
         assert_flat_capabilities(hls.capabilities().into_client_capabilities());
+    }
+
+    #[test]
+    fn playback_capability_queries_identify_explicit_capability_fields_only() {
+        assert!(!PlaybackCapabilitiesQuery::default().has_explicit_capability_fields());
+        assert!(
+            PlaybackCapabilitiesQuery {
+                video_codec: Some("".to_owned()),
+                ..PlaybackCapabilitiesQuery::default()
+            }
+            .has_explicit_capability_fields()
+        );
+
+        let remux = RemuxPlaybackQuery {
+            output_container: Some(RemuxContainer::Mp4),
+            ticket: Some("ticket".to_owned()),
+            renderer_session_id: Some("renderer".to_owned()),
+            playback_session_id: Some("playback".to_owned()),
+            renderer_ticket: Some("renderer-ticket".to_owned()),
+            ..RemuxPlaybackQuery::default()
+        };
+        assert!(!remux.capabilities().has_explicit_capability_fields());
+
+        let hls = HlsPlaybackQuery {
+            start_position_ms: Some(120_000),
+            audio_stream: Some(1),
+            preferred_audio_language: Some("eng,jpn".to_owned()),
+            subtitle_stream: Some(2),
+            preferred_subtitle_language: Some("eng".to_owned()),
+            ticket: Some("ticket".to_owned()),
+            renderer_session_id: Some("renderer".to_owned()),
+            playback_session_id: Some("playback".to_owned()),
+            renderer_ticket: Some("renderer-ticket".to_owned()),
+            ..HlsPlaybackQuery::default()
+        };
+        assert!(!hls.capabilities().has_explicit_capability_fields());
     }
 
     #[test]
