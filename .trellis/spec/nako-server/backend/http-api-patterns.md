@@ -399,6 +399,12 @@ Ok(Json(app.catalog().get_item(&principal, item_id).await?))
   - `GET /libraries`
   - `GET /libraries/{library_id}/sources`
   - `GET /libraries/{library_id}/items`
+  - `GET /people`
+  - `GET /people/{person_id}/items`
+  - `GET /tags`
+  - `GET /tags/{tag_id}/items`
+  - `GET /genres`
+  - `GET /genres/{genre_id}/items`
 
 ### 3. Contracts
 
@@ -429,6 +435,9 @@ Ok(Json(app.catalog().get_item(&principal, item_id).await?))
   existing response behavior until a separate cache policy is designed.
 - Bad: `/libraries/{library_id}/items` returns `Ok(Json(response))` and leaves
   browser/proxy caching to HTTP defaults.
+- Bad: `/people/{person_id}/items` or `/tags/{tag_id}/items` returns
+  `Ok(Json(response))` and lets dynamic relation lists drift back to cacheable
+  defaults.
 
 ### 6. Tests Required
 

@@ -423,6 +423,18 @@ Scope:
 - image/artwork derivative cache behavior;
 - N+1 query regression tests for common list/detail surfaces.
 
+Current shipped slice:
+
+- public JSON browse/search list routes are explicitly `Cache-Control:
+  no-store` across `items`, `search`, `libraries`, `libraries/{library_id}/sources`,
+  `libraries/{library_id}/items`, `people`, `people/{person_id}/items`,
+  `tags`, `tags/{tag_id}/items`, `genres`, and `genres/{genre_id}/items`;
+- the public list route budget is documented as `PageRequest::MAX_LIMIT`
+  and values above it are rejected instead of widening response budgets;
+- selected artwork image caching remains the separate private validator slice,
+  while public cursor/snapshot pagination remains a follow-on until the offset
+  contract proves insufficient under test.
+
 Current shipped artifact-cache baseline:
 
 - HLS playlist and HLS segment responses are explicitly `Cache-Control:

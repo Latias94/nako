@@ -82,8 +82,18 @@ Scope:
 
 - cursor pagination rules for stable browse/search orderings;
 - cache validators that respect access boundaries;
-- API response budget guidance;
+- API response budget guidance at the HTTP boundary;
 - query-shape regression tests for common list/detail surfaces.
+
+Current shipped slice:
+
+- public JSON browse/search list routes are explicitly `Cache-Control:
+  no-store` across `items`, `search`, `libraries`, `libraries/{library_id}/sources`,
+  `libraries/{library_id}/items`, `people`, `people/{person_id}/items`,
+  `tags`, `tags/{tag_id}/items`, `genres`, and `genres/{genre_id}/items`;
+- public list query parameters reject `limit` values above `PageRequest::MAX_LIMIT`;
+- the current offset contract remains the public paging shape, with cursor/snapshot
+  pagination deferred until the offset contract proves insufficient under test.
 
 ## Risk Register
 

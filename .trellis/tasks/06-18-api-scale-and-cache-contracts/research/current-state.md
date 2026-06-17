@@ -3,17 +3,20 @@
 ## What Is Already Shipped
 
 - Public Client library browse/search routes already exist and are access-aware.
-- Public JSON browse/search list routes already use `Cache-Control: no-store`.
+- Public JSON browse/search list routes already use `Cache-Control: no-store`,
+  including `items`, `search`, `libraries`, `libraries/{library_id}/sources`,
+  `libraries/{library_id}/items`, `people`, `people/{person_id}/items`,
+  `tags`, `tags/{tag_id}/items`, `genres`, and `genres/{genre_id}/items`.
 - Selected artwork image responses already have a private validator contract with `ETag` and `304 Not Modified`.
 - Search projection and deterministic in-memory scoring already exist.
 - Current public paging is still offset-based through `PageInfo { limit, offset, returned }`.
+- Response-budget guidance for public list routes is documented at the HTTP API boundary.
 
 ## What Is Still Missing
 
 - There is no cursor or snapshot paging contract for large-library browse/search.
 - Browse/search cache validators are not yet a first-class contract.
-- Response-budget guidance is not codified at the API boundary.
-- Query-shape tests still need stronger coverage for page holes, sort ties, and multi-principal access behavior.
+- Query-shape tests still need stronger coverage for cursor-style pagination, cross-principal combinations, and future validator behavior.
 
 ## Recommended First Slice
 
