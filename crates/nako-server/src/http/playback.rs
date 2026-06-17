@@ -23,8 +23,9 @@ use nako_core::{
     RendererSessionId,
 };
 use nako_playback::{
-    ClientPlaybackCapabilities, PlaybackHlsSegmentContainer, PlaybackHlsVariantPolicy,
-    PlaybackPreferenceContext, PlaybackTranscodeContainer, playback_profile_presets,
+    ClientPlaybackCapabilities, ClientPlaybackCapabilityRequest, PlaybackHlsSegmentContainer,
+    PlaybackHlsVariantPolicy, PlaybackPreferenceContext, PlaybackTranscodeContainer,
+    playback_profile_presets,
 };
 use nako_streaming::{
     DirectPlayRangeRequest, DirectPlayResponsePlan, DirectPlayResponseStatus,
@@ -107,7 +108,7 @@ pub(super) async fn get_source_playback_decision(
 ) -> ApiResult<impl IntoResponse> {
     Ok(Json(
         app.playback()
-            .get_source_playback_decision(&principal, source_id, query.into())
+            .get_source_playback_decision(&principal, source_id, query.into_client_capabilities())
             .await?,
     ))
 }
@@ -438,7 +439,7 @@ pub(super) async fn remux_stream_source(
             })
             .await?
     } else {
-        let client: ClientPlaybackCapabilities = query.capabilities().into();
+        let client = query.capabilities().into_client_capabilities();
         app.playback()
             .remux_playback_stream(RemuxPlaybackStreamRequest {
                 principal: source_playback.principal,
@@ -524,7 +525,7 @@ pub(super) async fn head_remux_stream_source(
         insert_playback_session_header(&mut response, remux.session.id);
         return Ok(response);
     } else {
-        let client: ClientPlaybackCapabilities = query.capabilities().into();
+        let client = query.capabilities().into_client_capabilities();
         let remux = app
             .playback()
             .remux_playback_preflight(RemuxPlaybackPreflightRequest {
@@ -608,7 +609,7 @@ pub(super) async fn hls_playlist_source(
             })
             .await?
     } else {
-        let client: ClientPlaybackCapabilities = query.capabilities().into();
+        let client = query.capabilities().into_client_capabilities();
         app.playback()
             .hls_playlist_playback(HlsPlaylistPlaybackRequest {
                 principal: source_playback.principal,
@@ -941,65 +942,52 @@ fn normalize_client_for_browser_remux_ticket(
 fn browser_capabilities_to_client(
     capabilities: Option<&BrowserPlaybackCapabilitiesDto>,
 ) -> ApiResult<ClientPlaybackCapabilities> {
-    let defaults = ClientPlaybackCapabilities::default();
     let Some(capabilities) = capabilities else {
-        return Ok(defaults);
+        return Ok(ClientPlaybackCapabilityRequest::default().resolve());
     };
 
-    Ok(ClientPlaybackCapabilities {
-        direct_play: capabilities.direct_play.unwrap_or(defaults.direct_play),
-        device_family: capabilities
-            .device_family
-            .clone()
-            .or(defaults.device_family),
-        profile_version: capabilities.profile_version.or(defaults.profile_version),
-        containers: capabilities
-            .container
-            .clone()
-            .unwrap_or(defaults.containers),
-        video_codecs: capabilities
-            .video_codec
-            .clone()
-            .unwrap_or(defaults.video_codecs),
-        audio_codecs: capabilities
-            .audio_codec
-            .clone()
-            .unwrap_or(defaults.audio_codecs),
-        max_video_bitrate: capabilities
-            .max_video_bitrate
-            .or(defaults.max_video_bitrate),
-        max_width: capabilities.max_width.or(defaults.max_width),
-        max_height: capabilities.max_height.or(defaults.max_height),
-        max_audio_channels: capabilities
-            .max_audio_channels
-            .or(defaults.max_audio_channels),
-        supports_hdr: capabilities.supports_hdr.unwrap_or(defaults.supports_hdr),
-        supports_subtitles: capabilities
-            .supports_subtitles
-            .unwrap_or(defaults.supports_subtitles),
-        hls_variant_policy: match capabilities.hls_variant_policy.as_ref() {
-            Some(ClientHlsVariantPolicy::SingleVariant) | None => {
-                PlaybackHlsVariantPolicy::SingleVariant
+    let hls_variant_policy = match capabilities.hls_variant_policy.as_ref() {
+        Some(ClientHlsVariantPolicy::SingleVariant) => {
+            Some(PlaybackHlsVariantPolicy::SingleVariant)
+        }
+        Some(ClientHlsVariantPolicy::Adaptive) => Some(PlaybackHlsVariantPolicy::Adaptive),
+        None => None,
+        Some(ClientHlsVariantPolicy::Other(value)) => {
+            return Err(NakoError::InvalidInput {
+                message: format!("unsupported browser playback HLS variant policy: {value}"),
             }
-            Some(ClientHlsVariantPolicy::Adaptive) => PlaybackHlsVariantPolicy::Adaptive,
-            Some(ClientHlsVariantPolicy::Other(value)) => {
-                return Err(NakoError::InvalidInput {
-                    message: format!("unsupported browser playback HLS variant policy: {value}"),
-                }
-                .into());
+            .into());
+        }
+    };
+    let hls_segment_container = match capabilities.hls_segment_container.as_ref() {
+        Some(ClientHlsSegmentContainer::MpegTs) => Some(PlaybackHlsSegmentContainer::MpegTs),
+        Some(ClientHlsSegmentContainer::Fmp4) => Some(PlaybackHlsSegmentContainer::Fmp4),
+        None => None,
+        Some(ClientHlsSegmentContainer::Other(value)) => {
+            return Err(NakoError::InvalidInput {
+                message: format!("unsupported browser playback HLS segment container: {value}"),
             }
-        },
-        hls_segment_container: match capabilities.hls_segment_container.as_ref() {
-            Some(ClientHlsSegmentContainer::MpegTs) | None => PlaybackHlsSegmentContainer::MpegTs,
-            Some(ClientHlsSegmentContainer::Fmp4) => PlaybackHlsSegmentContainer::Fmp4,
-            Some(ClientHlsSegmentContainer::Other(value)) => {
-                return Err(NakoError::InvalidInput {
-                    message: format!("unsupported browser playback HLS segment container: {value}"),
-                }
-                .into());
-            }
-        },
-    })
+            .into());
+        }
+    };
+
+    Ok(ClientPlaybackCapabilityRequest {
+        direct_play: capabilities.direct_play,
+        device_family: capabilities.device_family.clone(),
+        profile_version: capabilities.profile_version,
+        containers: capabilities.container.clone(),
+        video_codecs: capabilities.video_codec.clone(),
+        audio_codecs: capabilities.audio_codec.clone(),
+        max_video_bitrate: capabilities.max_video_bitrate,
+        max_width: capabilities.max_width,
+        max_height: capabilities.max_height,
+        max_audio_channels: capabilities.max_audio_channels,
+        supports_hdr: capabilities.supports_hdr,
+        supports_subtitles: capabilities.supports_subtitles,
+        hls_variant_policy,
+        hls_segment_container,
+    }
+    .resolve())
 }
 
 #[derive(Clone, Debug)]
@@ -1456,33 +1444,39 @@ pub(super) struct BrowserPlaybackTicketQuery {
     renderer_ticket: Option<String>,
 }
 
-impl From<PlaybackCapabilitiesQuery> for ClientPlaybackCapabilities {
-    fn from(value: PlaybackCapabilitiesQuery) -> Self {
-        let defaults = ClientPlaybackCapabilities::default();
-
-        Self {
-            direct_play: value.direct_play.unwrap_or(defaults.direct_play),
-            device_family: value.device_family.or(defaults.device_family),
-            profile_version: value.profile_version.or(defaults.profile_version),
-            containers: csv_or_default(value.container, defaults.containers),
-            video_codecs: csv_or_default(value.video_codec, defaults.video_codecs),
-            audio_codecs: csv_or_default(value.audio_codec, defaults.audio_codecs),
-            max_video_bitrate: value.max_video_bitrate.or(defaults.max_video_bitrate),
-            max_width: value.max_width.or(defaults.max_width),
-            max_height: value.max_height.or(defaults.max_height),
-            max_audio_channels: value.max_audio_channels.or(defaults.max_audio_channels),
-            supports_hdr: value.supports_hdr.unwrap_or(defaults.supports_hdr),
-            supports_subtitles: value
-                .supports_subtitles
-                .unwrap_or(defaults.supports_subtitles),
-            hls_variant_policy: value
-                .hls_variant_policy
-                .unwrap_or(defaults.hls_variant_policy),
-            hls_segment_container: value
-                .hls_segment_container
-                .unwrap_or(defaults.hls_segment_container),
+impl PlaybackCapabilitiesQuery {
+    fn into_client_capabilities(self) -> ClientPlaybackCapabilities {
+        ClientPlaybackCapabilityRequest {
+            direct_play: self.direct_play,
+            device_family: self.device_family,
+            profile_version: self.profile_version,
+            containers: csv_values(self.container),
+            video_codecs: csv_values(self.video_codec),
+            audio_codecs: csv_values(self.audio_codec),
+            max_video_bitrate: self.max_video_bitrate,
+            max_width: self.max_width,
+            max_height: self.max_height,
+            max_audio_channels: self.max_audio_channels,
+            supports_hdr: self.supports_hdr,
+            supports_subtitles: self.supports_subtitles,
+            hls_variant_policy: self.hls_variant_policy,
+            hls_segment_container: self.hls_segment_container,
         }
+        .resolve()
     }
+}
+
+fn csv_values(value: Option<String>) -> Option<Vec<String>> {
+    value.and_then(|value| {
+        let values = value
+            .split(',')
+            .map(str::trim)
+            .filter(|value| !value.is_empty())
+            .map(ToOwned::to_owned)
+            .collect::<Vec<_>>();
+
+        (!values.is_empty()).then_some(values)
+    })
 }
 
 fn csv_or_default(value: Option<String>, default: Vec<String>) -> Vec<String> {
@@ -1538,6 +1532,41 @@ mod tests {
         );
     }
 
+    fn assert_chromium_preset_baseline(capabilities: ClientPlaybackCapabilities) {
+        assert!(capabilities.direct_play);
+        assert_eq!(
+            capabilities.device_family.as_deref(),
+            Some("browser_chromium")
+        );
+        assert_eq!(capabilities.profile_version, Some(1));
+        assert_eq!(
+            capabilities.containers,
+            vec!["mp4".to_owned(), "m4v".to_owned(), "webm".to_owned()]
+        );
+        assert_eq!(
+            capabilities.video_codecs,
+            vec!["h264".to_owned(), "vp9".to_owned()]
+        );
+        assert_eq!(
+            capabilities.audio_codecs,
+            vec!["aac".to_owned(), "mp3".to_owned(), "opus".to_owned()]
+        );
+        assert_eq!(capabilities.max_video_bitrate, None);
+        assert_eq!(capabilities.max_width, None);
+        assert_eq!(capabilities.max_height, None);
+        assert_eq!(capabilities.max_audio_channels, None);
+        assert!(!capabilities.supports_hdr);
+        assert!(capabilities.supports_subtitles);
+        assert_eq!(
+            capabilities.hls_variant_policy,
+            PlaybackHlsVariantPolicy::Adaptive
+        );
+        assert_eq!(
+            capabilities.hls_segment_container,
+            PlaybackHlsSegmentContainer::Fmp4
+        );
+    }
+
     #[test]
     fn playback_capability_queries_map_all_current_flat_fields() {
         let query = PlaybackCapabilitiesQuery {
@@ -1557,7 +1586,7 @@ mod tests {
             hls_segment_container: Some(PlaybackHlsSegmentContainer::Fmp4),
         };
 
-        assert_flat_capabilities(ClientPlaybackCapabilities::from(query.clone()));
+        assert_flat_capabilities(query.clone().into_client_capabilities());
 
         let remux = RemuxPlaybackQuery {
             direct_play: query.direct_play,
@@ -1580,7 +1609,7 @@ mod tests {
             playback_session_id: None,
             renderer_ticket: None,
         };
-        assert_flat_capabilities(ClientPlaybackCapabilities::from(remux.capabilities()));
+        assert_flat_capabilities(remux.capabilities().into_client_capabilities());
 
         let hls = HlsPlaybackQuery {
             direct_play: query.direct_play,
@@ -1607,7 +1636,138 @@ mod tests {
             playback_session_id: None,
             renderer_ticket: None,
         };
-        assert_flat_capabilities(ClientPlaybackCapabilities::from(hls.capabilities()));
+        assert_flat_capabilities(hls.capabilities().into_client_capabilities());
+    }
+
+    #[test]
+    fn playback_capability_queries_resolve_profile_baselines_and_overrides() {
+        let query = PlaybackCapabilitiesQuery {
+            device_family: Some(" browser chromium ".to_owned()),
+            profile_version: Some(1),
+            ..PlaybackCapabilitiesQuery::default()
+        };
+
+        assert_chromium_preset_baseline(query.clone().into_client_capabilities());
+
+        let override_query = PlaybackCapabilitiesQuery {
+            video_codec: Some("hevc".to_owned()),
+            supports_hdr: Some(true),
+            hls_segment_container: Some(PlaybackHlsSegmentContainer::MpegTs),
+            ..query.clone()
+        };
+        let capabilities = override_query.into_client_capabilities();
+        assert_eq!(capabilities.video_codecs, vec!["hevc".to_owned()]);
+        assert!(capabilities.supports_hdr);
+        assert_eq!(
+            capabilities.hls_segment_container,
+            PlaybackHlsSegmentContainer::MpegTs
+        );
+        assert_eq!(
+            capabilities.containers,
+            vec!["mp4".to_owned(), "m4v".to_owned(), "webm".to_owned()]
+        );
+        assert_eq!(
+            capabilities.hls_variant_policy,
+            PlaybackHlsVariantPolicy::Adaptive
+        );
+
+        let empty_override = PlaybackCapabilitiesQuery {
+            video_codec: Some(" , ".to_owned()),
+            ..query
+        };
+        assert_chromium_preset_baseline(empty_override.into_client_capabilities());
+    }
+
+    #[test]
+    fn playback_capability_route_queries_preserve_identity_without_mismatched_preset() {
+        let unknown = PlaybackCapabilitiesQuery {
+            device_family: Some(" Experimental Console ".to_owned()),
+            profile_version: Some(1),
+            ..PlaybackCapabilitiesQuery::default()
+        }
+        .into_client_capabilities();
+        assert_eq!(
+            unknown,
+            ClientPlaybackCapabilities {
+                device_family: Some("experimental_console".to_owned()),
+                profile_version: Some(1),
+                ..ClientPlaybackCapabilities::default()
+            }
+        );
+
+        let mismatched = PlaybackCapabilitiesQuery {
+            device_family: Some("browser_chromium".to_owned()),
+            profile_version: Some(99),
+            ..PlaybackCapabilitiesQuery::default()
+        }
+        .into_client_capabilities();
+        assert_eq!(
+            mismatched,
+            ClientPlaybackCapabilities {
+                device_family: Some("browser_chromium".to_owned()),
+                profile_version: Some(99),
+                ..ClientPlaybackCapabilities::default()
+            }
+        );
+        assert!(mismatched.video_codecs.contains(&"hevc".to_owned()));
+        assert_eq!(
+            mismatched.hls_variant_policy,
+            PlaybackHlsVariantPolicy::SingleVariant
+        );
+    }
+
+    #[test]
+    fn remux_and_hls_queries_resolve_profile_baselines_and_overrides() {
+        let remux = RemuxPlaybackQuery {
+            device_family: Some("browser_chromium".to_owned()),
+            profile_version: Some(1),
+            video_codec: Some("hevc".to_owned()),
+            output_container: Some(RemuxContainer::Mkv),
+            ticket: Some("ticket".to_owned()),
+            renderer_session_id: Some("renderer".to_owned()),
+            playback_session_id: Some("playback".to_owned()),
+            renderer_ticket: Some("renderer-ticket".to_owned()),
+            ..RemuxPlaybackQuery::default()
+        };
+        let remux_capabilities = remux.capabilities().into_client_capabilities();
+        assert_eq!(remux_capabilities.video_codecs, vec!["hevc".to_owned()]);
+        assert_eq!(
+            remux_capabilities.containers,
+            vec!["mp4".to_owned(), "m4v".to_owned(), "webm".to_owned()]
+        );
+        assert_eq!(
+            remux_capabilities.hls_segment_container,
+            PlaybackHlsSegmentContainer::Fmp4
+        );
+
+        let hls = HlsPlaybackQuery {
+            device_family: Some("browser_chromium".to_owned()),
+            profile_version: Some(1),
+            hls_segment_container: Some(PlaybackHlsSegmentContainer::MpegTs),
+            start_position_ms: Some(120_000),
+            audio_stream: Some(1),
+            preferred_audio_language: Some("eng,jpn".to_owned()),
+            subtitle_stream: Some(2),
+            preferred_subtitle_language: Some("eng".to_owned()),
+            ticket: Some("ticket".to_owned()),
+            renderer_session_id: Some("renderer".to_owned()),
+            playback_session_id: Some("playback".to_owned()),
+            renderer_ticket: Some("renderer-ticket".to_owned()),
+            ..HlsPlaybackQuery::default()
+        };
+        let hls_capabilities = hls.capabilities().into_client_capabilities();
+        assert_eq!(
+            hls_capabilities.video_codecs,
+            vec!["h264".to_owned(), "vp9".to_owned()]
+        );
+        assert_eq!(
+            hls_capabilities.hls_variant_policy,
+            PlaybackHlsVariantPolicy::Adaptive
+        );
+        assert_eq!(
+            hls_capabilities.hls_segment_container,
+            PlaybackHlsSegmentContainer::MpegTs
+        );
     }
 
     #[test]
@@ -1631,5 +1791,50 @@ mod tests {
         };
 
         assert_flat_capabilities(browser_capabilities_to_client(Some(&capabilities)).unwrap());
+    }
+
+    #[test]
+    fn browser_playback_ticket_capabilities_resolve_profile_baseline_and_overrides() {
+        let capabilities = BrowserPlaybackCapabilitiesDto {
+            device_family: Some("browser_chromium".to_owned()),
+            profile_version: Some(1),
+            ..BrowserPlaybackCapabilitiesDto::default()
+        };
+        assert_chromium_preset_baseline(
+            browser_capabilities_to_client(Some(&capabilities)).unwrap(),
+        );
+
+        let capabilities = BrowserPlaybackCapabilitiesDto {
+            device_family: Some("browser_chromium".to_owned()),
+            profile_version: Some(1),
+            video_codec: Some(vec!["hevc".to_owned()]),
+            hls_segment_container: Some(ClientHlsSegmentContainer::MpegTs),
+            ..BrowserPlaybackCapabilitiesDto::default()
+        };
+        let resolved = browser_capabilities_to_client(Some(&capabilities)).unwrap();
+        assert_eq!(resolved.video_codecs, vec!["hevc".to_owned()]);
+        assert_eq!(
+            resolved.hls_variant_policy,
+            PlaybackHlsVariantPolicy::Adaptive
+        );
+        assert_eq!(
+            resolved.hls_segment_container,
+            PlaybackHlsSegmentContainer::MpegTs
+        );
+
+        let capabilities = BrowserPlaybackCapabilitiesDto {
+            device_family: Some("browser_chromium".to_owned()),
+            profile_version: Some(99),
+            ..BrowserPlaybackCapabilitiesDto::default()
+        };
+        let mismatched = browser_capabilities_to_client(Some(&capabilities)).unwrap();
+        assert_eq!(
+            mismatched,
+            ClientPlaybackCapabilities {
+                device_family: Some("browser_chromium".to_owned()),
+                profile_version: Some(99),
+                ..ClientPlaybackCapabilities::default()
+            }
+        );
     }
 }

@@ -622,6 +622,105 @@ async fn playback_decision_route_exposes_safe_selection_reasons_from_flat_capabi
 }
 
 #[tokio::test]
+async fn playback_decision_route_resolves_profile_identity_to_capability_baseline() {
+    let (_temp, app, source, store) =
+        app_with_media_source_config("profile-hevc.mp4", b"media", |_| {}).await;
+    let mut probe = compatible_probe();
+    probe.container = Some("mov,mp4,m4a,3gp,3g2,mj2".to_owned());
+    if let Some(video) = probe
+        .streams
+        .iter_mut()
+        .find(|stream| matches!(stream.kind, MediaStreamKind::Video))
+    {
+        video.codec = Some("hevc".to_owned());
+    }
+    store.upsert_media_probe(source.id, &probe).await.unwrap();
+    let router = build_router(app);
+
+    let decision = request_json::<nako_api::public_client::PlaybackDecisionResponse>(
+        &router,
+        Method::GET,
+        &format!(
+            "/sources/{}/playback/decision?device_family=browser_chromium&profile_version=1",
+            source.id
+        ),
+    )
+    .await;
+    let body = serde_json::to_string(&decision).unwrap();
+    let video_codec_unsupported =
+        nako_api::public_client::ClientPlaybackCompatibilityCondition::VideoCodecUnsupported;
+
+    assert_eq!(
+        decision.decision.mode,
+        nako_api::public_client::ClientPlaybackMode::Transcode
+    );
+    assert_eq!(
+        decision.decision.reason,
+        nako_api::public_client::ClientPlaybackDecisionReason::SourceCodecsUnsupported
+    );
+    assert_eq!(
+        decision.decision.report.selection_reasons,
+        vec![video_codec_unsupported.clone()]
+    );
+    assert!(
+        decision
+            .decision
+            .report
+            .direct_play
+            .reasons
+            .contains(&video_codec_unsupported)
+    );
+    assert!(!body.contains("local:///"));
+    assert!(!body.contains("Bearer"));
+    assert!(!body.contains("ffmpeg"));
+}
+
+#[tokio::test]
+async fn playback_decision_route_allows_explicit_capability_overrides_after_profile_baseline() {
+    let (_temp, app, source, store) =
+        app_with_media_source_config("profile-hevc-override.mp4", b"media", |_| {}).await;
+    let mut probe = compatible_probe();
+    probe.container = Some("mov,mp4,m4a,3gp,3g2,mj2".to_owned());
+    if let Some(video) = probe
+        .streams
+        .iter_mut()
+        .find(|stream| matches!(stream.kind, MediaStreamKind::Video))
+    {
+        video.codec = Some("hevc".to_owned());
+    }
+    store.upsert_media_probe(source.id, &probe).await.unwrap();
+    let router = build_router(app);
+
+    let decision = request_json::<nako_api::public_client::PlaybackDecisionResponse>(
+        &router,
+        Method::GET,
+        &format!(
+            "/sources/{}/playback/decision?device_family=browser_chromium&profile_version=1&video_codec=hevc",
+            source.id
+        ),
+    )
+    .await;
+    let body = serde_json::to_string(&decision).unwrap();
+
+    assert_eq!(
+        decision.decision.mode,
+        nako_api::public_client::ClientPlaybackMode::DirectPlay
+    );
+    assert_eq!(
+        decision.decision.reason,
+        nako_api::public_client::ClientPlaybackDecisionReason::Compatible
+    );
+    assert_eq!(
+        decision.decision.report.selection_reasons,
+        vec![nako_api::public_client::ClientPlaybackCompatibilityCondition::Compatible]
+    );
+    assert!(decision.decision.report.direct_play.supported);
+    assert!(!body.contains("local:///"));
+    assert!(!body.contains("Bearer"));
+    assert!(!body.contains("ffmpeg"));
+}
+
+#[tokio::test]
 async fn playback_routes_require_play_library_access() {
     let (_temp, app, source, store) =
         app_with_media_source_config("access-denied.mkv", b"media", |_| {}).await;

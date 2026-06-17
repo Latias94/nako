@@ -1,0 +1,8 @@
+{"file":"CONTEXT.md","reason":"Project language for Client Applications, Public Client API, Playback Runtime, and redaction boundaries."}
+{"file":".trellis/spec/nako-playback/backend/index.md","reason":"Playback crate boundary and pre-development checklist."}
+{"file":".trellis/spec/nako-playback/backend/quality-guidelines.md","reason":"Playback decision report, capability profile, and planner purity rules."}
+{"file":".trellis/spec/nako-client-protocol/backend/index.md","reason":"Public Client flat playback capability field contract and additive compatibility constraints."}
+{"file":".trellis/spec/nako-api/backend/admin-and-public-contracts.md","reason":"Public API/OpenAPI/SDK contract and generated artifact constraints."}
+{"file":".trellis/spec/nako-server/backend/http-api-patterns.md","reason":"HTTP handler/query parsing and public route test conventions."}
+{"file":".trellis/spec/guides/cross-layer-thinking-guide.md","reason":"Profile resolution crosses playback domain helpers and server HTTP request conversion."}
+{"file":"docs/architecture/PLAYBACK.md","reason":"Device Capability Profiles lane authority and exit criteria."}

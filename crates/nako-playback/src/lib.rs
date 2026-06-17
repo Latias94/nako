@@ -16,7 +16,7 @@ pub use capability::{
     DirectPlayCapabilityProfile, PlaybackCapabilityEvaluation, PlaybackCompatibilityCondition,
     PlaybackDecisionReport, PlaybackProfileFamily, PlaybackProfilePreset, PlaybackTargetProfile,
     RemuxCapabilityProfile, TranscodeCapabilityProfile, normalize_playback_device_family,
-    playback_profile_presets,
+    playback_profile_presets, resolve_client_playback_capabilities,
 };
 use capability::{evaluate_direct_play, evaluate_remux, evaluate_transcode};
 pub use values::{
@@ -287,6 +287,34 @@ pub struct ClientPlaybackCapabilities {
     pub hls_variant_policy: PlaybackHlsVariantPolicy,
     #[serde(default)]
     pub hls_segment_container: PlaybackHlsSegmentContainer,
+}
+
+#[derive(Clone, Debug, Default, Deserialize, Eq, PartialEq, Serialize)]
+pub struct ClientPlaybackCapabilityRequest {
+    pub direct_play: Option<bool>,
+    pub device_family: Option<String>,
+    pub profile_version: Option<u32>,
+    #[serde(default)]
+    pub containers: Option<Vec<String>>,
+    #[serde(default)]
+    pub video_codecs: Option<Vec<String>>,
+    #[serde(default)]
+    pub audio_codecs: Option<Vec<String>>,
+    pub max_video_bitrate: Option<u64>,
+    pub max_width: Option<u32>,
+    pub max_height: Option<u32>,
+    pub max_audio_channels: Option<u32>,
+    pub supports_hdr: Option<bool>,
+    pub supports_subtitles: Option<bool>,
+    pub hls_variant_policy: Option<PlaybackHlsVariantPolicy>,
+    pub hls_segment_container: Option<PlaybackHlsSegmentContainer>,
+}
+
+impl ClientPlaybackCapabilityRequest {
+    #[must_use]
+    pub fn resolve(self) -> ClientPlaybackCapabilities {
+        resolve_client_playback_capabilities(self)
+    }
 }
 
 impl Default for ClientPlaybackCapabilities {
@@ -2783,6 +2811,141 @@ mod tests {
                 preset.family.as_str()
             );
         }
+    }
+
+    #[test]
+    fn playback_profile_resolution_uses_known_current_preset_baseline() {
+        let capabilities = resolve_client_playback_capabilities(ClientPlaybackCapabilityRequest {
+            device_family: Some(" Browser Chromium ".to_owned()),
+            profile_version: Some(1),
+            ..ClientPlaybackCapabilityRequest::default()
+        });
+
+        assert_eq!(
+            capabilities.device_family.as_deref(),
+            Some("browser_chromium")
+        );
+        assert_eq!(capabilities.profile_version, Some(1));
+        assert_eq!(
+            capabilities.containers,
+            vec!["mp4".to_owned(), "m4v".to_owned(), "webm".to_owned()]
+        );
+        assert_eq!(
+            capabilities.video_codecs,
+            vec!["h264".to_owned(), "vp9".to_owned()]
+        );
+        assert_eq!(
+            capabilities.audio_codecs,
+            vec!["aac".to_owned(), "mp3".to_owned(), "opus".to_owned()]
+        );
+        assert!(!capabilities.supports_hdr);
+        assert!(capabilities.supports_subtitles);
+        assert_eq!(
+            capabilities.hls_variant_policy,
+            PlaybackHlsVariantPolicy::Adaptive
+        );
+        assert_eq!(
+            capabilities.hls_segment_container,
+            PlaybackHlsSegmentContainer::Fmp4
+        );
+    }
+
+    #[test]
+    fn playback_profile_resolution_applies_explicit_overrides_to_preset() {
+        let capabilities = resolve_client_playback_capabilities(ClientPlaybackCapabilityRequest {
+            direct_play: Some(false),
+            device_family: Some("browser_chromium".to_owned()),
+            profile_version: Some(1),
+            containers: Some(vec!["mkv".to_owned()]),
+            video_codecs: Some(vec!["hevc".to_owned(), "av1".to_owned()]),
+            audio_codecs: Some(vec!["flac".to_owned()]),
+            max_video_bitrate: Some(12_000_000),
+            max_width: Some(1_920),
+            max_height: Some(1_080),
+            max_audio_channels: Some(2),
+            supports_hdr: Some(true),
+            supports_subtitles: Some(false),
+            hls_variant_policy: Some(PlaybackHlsVariantPolicy::SingleVariant),
+            hls_segment_container: Some(PlaybackHlsSegmentContainer::MpegTs),
+        });
+
+        assert!(!capabilities.direct_play);
+        assert_eq!(
+            capabilities.device_family.as_deref(),
+            Some("browser_chromium")
+        );
+        assert_eq!(capabilities.profile_version, Some(1));
+        assert_eq!(capabilities.containers, vec!["mkv".to_owned()]);
+        assert_eq!(
+            capabilities.video_codecs,
+            vec!["hevc".to_owned(), "av1".to_owned()]
+        );
+        assert_eq!(capabilities.audio_codecs, vec!["flac".to_owned()]);
+        assert_eq!(capabilities.max_video_bitrate, Some(12_000_000));
+        assert_eq!(capabilities.max_width, Some(1_920));
+        assert_eq!(capabilities.max_height, Some(1_080));
+        assert_eq!(capabilities.max_audio_channels, Some(2));
+        assert!(capabilities.supports_hdr);
+        assert!(!capabilities.supports_subtitles);
+        assert_eq!(
+            capabilities.hls_variant_policy,
+            PlaybackHlsVariantPolicy::SingleVariant
+        );
+        assert_eq!(
+            capabilities.hls_segment_container,
+            PlaybackHlsSegmentContainer::MpegTs
+        );
+    }
+
+    #[test]
+    fn playback_profile_resolution_keeps_unknown_family_identity_without_preset() {
+        let capabilities = resolve_client_playback_capabilities(ClientPlaybackCapabilityRequest {
+            device_family: Some(" Experimental Console ".to_owned()),
+            profile_version: Some(1),
+            ..ClientPlaybackCapabilityRequest::default()
+        });
+
+        assert_eq!(
+            capabilities.device_family.as_deref(),
+            Some("experimental_console")
+        );
+        assert_eq!(capabilities.profile_version, Some(1));
+        assert_eq!(
+            capabilities,
+            ClientPlaybackCapabilities {
+                device_family: Some("experimental_console".to_owned()),
+                profile_version: Some(1),
+                ..ClientPlaybackCapabilities::default()
+            }
+        );
+    }
+
+    #[test]
+    fn playback_profile_resolution_ignores_mismatched_preset_version() {
+        let capabilities = resolve_client_playback_capabilities(ClientPlaybackCapabilityRequest {
+            device_family: Some("browser_chromium".to_owned()),
+            profile_version: Some(99),
+            ..ClientPlaybackCapabilityRequest::default()
+        });
+
+        assert_eq!(
+            capabilities.device_family.as_deref(),
+            Some("browser_chromium")
+        );
+        assert_eq!(capabilities.profile_version, Some(99));
+        assert_eq!(
+            capabilities,
+            ClientPlaybackCapabilities {
+                device_family: Some("browser_chromium".to_owned()),
+                profile_version: Some(99),
+                ..ClientPlaybackCapabilities::default()
+            }
+        );
+        assert!(capabilities.video_codecs.contains(&"hevc".to_owned()));
+        assert_eq!(
+            capabilities.hls_variant_policy,
+            PlaybackHlsVariantPolicy::SingleVariant
+        );
     }
 
     #[test]

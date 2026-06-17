@@ -2,12 +2,12 @@ use nako_core::{MediaProbeResult, MediaSourceId, MediaStreamKind};
 use serde::{Deserialize, Serialize};
 
 use crate::{
-    ClientPlaybackCapabilities, PlaybackAudioOutputRequirement, PlaybackColorPipelineRequirement,
-    PlaybackColorPipelineSource, PlaybackDenial, PlaybackHlsOutputRequirement,
-    PlaybackHlsSegmentContainer, PlaybackHlsVariantPolicy, PlaybackMode, PlaybackOutputConstraints,
-    PlaybackPreferenceContext, PlaybackRemuxContainer, PlaybackSelectionContext,
-    PlaybackStorageContext, PlaybackSubtitleStrategy, PlaybackTarget, PlaybackTrackSelection,
-    PlaybackTranscodeContainer,
+    ClientPlaybackCapabilities, ClientPlaybackCapabilityRequest, PlaybackAudioOutputRequirement,
+    PlaybackColorPipelineRequirement, PlaybackColorPipelineSource, PlaybackDenial,
+    PlaybackHlsOutputRequirement, PlaybackHlsSegmentContainer, PlaybackHlsVariantPolicy,
+    PlaybackMode, PlaybackOutputConstraints, PlaybackPreferenceContext, PlaybackRemuxContainer,
+    PlaybackSelectionContext, PlaybackStorageContext, PlaybackSubtitleStrategy, PlaybackTarget,
+    PlaybackTrackSelection, PlaybackTranscodeContainer,
 };
 
 const HLS_SIDECAR_SUBTITLE_CODECS: &[&str] =
@@ -250,6 +250,74 @@ pub fn playback_profile_presets() -> Vec<PlaybackProfilePreset> {
         .iter()
         .filter_map(|family| PlaybackProfilePreset::from_family(*family))
         .collect()
+}
+
+#[must_use]
+pub fn resolve_client_playback_capabilities(
+    request: ClientPlaybackCapabilityRequest,
+) -> ClientPlaybackCapabilities {
+    let normalized_family = normalized_device_family(request.device_family.as_deref());
+    let mut capabilities =
+        resolved_profile_baseline(normalized_family.as_deref(), request.profile_version);
+
+    capabilities.device_family = normalized_family;
+    capabilities.profile_version = request.profile_version;
+
+    if let Some(direct_play) = request.direct_play {
+        capabilities.direct_play = direct_play;
+    }
+    if let Some(containers) = request.containers {
+        capabilities.containers = containers;
+    }
+    if let Some(video_codecs) = request.video_codecs {
+        capabilities.video_codecs = video_codecs;
+    }
+    if let Some(audio_codecs) = request.audio_codecs {
+        capabilities.audio_codecs = audio_codecs;
+    }
+    if request.max_video_bitrate.is_some() {
+        capabilities.max_video_bitrate = request.max_video_bitrate;
+    }
+    if request.max_width.is_some() {
+        capabilities.max_width = request.max_width;
+    }
+    if request.max_height.is_some() {
+        capabilities.max_height = request.max_height;
+    }
+    if request.max_audio_channels.is_some() {
+        capabilities.max_audio_channels = request.max_audio_channels;
+    }
+    if let Some(supports_hdr) = request.supports_hdr {
+        capabilities.supports_hdr = supports_hdr;
+    }
+    if let Some(supports_subtitles) = request.supports_subtitles {
+        capabilities.supports_subtitles = supports_subtitles;
+    }
+    if let Some(hls_variant_policy) = request.hls_variant_policy {
+        capabilities.hls_variant_policy = hls_variant_policy;
+    }
+    if let Some(hls_segment_container) = request.hls_segment_container {
+        capabilities.hls_segment_container = hls_segment_container;
+    }
+
+    capabilities
+}
+
+fn resolved_profile_baseline(
+    normalized_family: Option<&str>,
+    profile_version: Option<u32>,
+) -> ClientPlaybackCapabilities {
+    if profile_version != Some(PLAYBACK_PROFILE_PRESET_VERSION) {
+        return ClientPlaybackCapabilities::default();
+    }
+
+    let Some(family) = PlaybackProfileFamily::from_device_family(normalized_family) else {
+        return ClientPlaybackCapabilities::default();
+    };
+
+    PlaybackProfilePreset::from_family(family)
+        .map(|preset| preset.capabilities)
+        .unwrap_or_default()
 }
 
 fn preset_capabilities(family: PlaybackProfileFamily) -> ClientPlaybackCapabilities {

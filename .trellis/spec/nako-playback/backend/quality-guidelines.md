@@ -176,6 +176,118 @@ report = report.with_selection_reasons(vec![
 Selection reasons are stable product facts from planner evaluation, not raw
 runtime diagnostics.
 
+## Scenario: Playback Profile Identity Resolution
+
+### 1. Scope / Trigger
+
+- Trigger: changing playback capability profile presets, Public Client playback
+  capability query/body interpretation, browser playback tickets, Remux input,
+  or HLS playlist startup capability mapping.
+- Scope: `ClientPlaybackCapabilityRequest` resolves request-shaped partial
+  capability facts into `ClientPlaybackCapabilities` before the planner runs.
+
+### 2. Signatures
+
+- Domain helper:
+  `resolve_client_playback_capabilities(ClientPlaybackCapabilityRequest) -> ClientPlaybackCapabilities`.
+- Request fields:
+  `direct_play`, `device_family`, `profile_version`, `containers`,
+  `video_codecs`, `audio_codecs`, `max_video_bitrate`, `max_width`,
+  `max_height`, `max_audio_channels`, `supports_hdr`, `supports_subtitles`,
+  `hls_variant_policy`, and `hls_segment_container`.
+- Server Public Client flat query fields remain `container`, `video_codec`, and
+  `audio_codec`; server code maps them to the plural domain request fields.
+
+### 3. Contracts
+
+- A known normalized `device_family` with the current profile version uses the
+  matching `PlaybackProfilePreset` capabilities as the baseline.
+- Missing, blank, unknown, or future `device_family` must not reject playback
+  planning. Unknown nonblank families keep their normalized safe identity and
+  use default capabilities.
+- Missing or mismatched `profile_version` must not apply a known preset. Keep
+  the request identity/version and use default capabilities.
+- Explicit request fields override the profile baseline field by field.
+- Empty CSV query values such as `video_codec=,` are treated as absent so they
+  do not erase a preset baseline accidentally.
+- Browser playback ticket bodies use the same profile-resolution semantics, but
+  still reject additive `Other` HLS enum values as invalid input at the HTTP
+  boundary.
+- Resolving a profile is an input-normalization boundary only. It must not add
+  database state, client autodetection, user preferences, runtime work, or
+  planner reason rewrites.
+
+### 4. Validation & Error Matrix
+
+| Condition | Required behavior |
+|-----------|-------------------|
+| `device_family=browser_chromium&profile_version=1` | Start from the Chromium preset capabilities. |
+| Same request plus `video_codec=hevc` | Keep Chromium preset fields except replace video codecs with `["hevc"]`. |
+| `device_family=experimental_console&profile_version=1` | Preserve `experimental_console`, use default capabilities, and do not reject. |
+| `device_family=browser_chromium&profile_version=99` | Preserve identity/version, use default capabilities, and do not apply Chromium preset. |
+| Blank `device_family` | Omit profile identity and use default capabilities unless explicit fields are present. |
+| Empty CSV capability query field | Treat as absent and retain the selected preset/default baseline. |
+| Browser body has `Other` HLS policy/container | Return invalid input without falling through to default behavior. |
+
+### 5. Good/Base/Bad Cases
+
+- Good: a Public Client can send only `device_family` and `profile_version`
+  after reading `/playback/profile-presets`; the server resolves the advertised
+  preset before Direct Play/Remux/Transcode planning.
+- Good: a browser that mostly matches Chromium but supports HEVC sends
+  `video_codec=hevc` as an explicit override instead of copying every preset
+  field.
+- Base: older clients that omit profile identity continue to plan against the
+  default capability baseline.
+- Bad: route handlers hand-build `ClientPlaybackCapabilities::default()` and
+  fill fields directly, because that bypasses preset resolution.
+- Bad: applying a preset when `profile_version` is missing or mismatched.
+- Bad: treating an unknown device family as an error.
+
+### 6. Tests Required
+
+- `nako-playback` tests for known-current preset baseline, explicit overrides,
+  unknown family identity preservation, and version mismatch fallback.
+- `nako-server` unit tests for Public Client query, Remux query, HLS query, and
+  browser ticket body conversion using the shared resolver.
+- HTTP route tests proving
+  `device_family=browser_chromium&profile_version=1` changes playback planning
+  from the default HEVC-compatible baseline to Chromium preset behavior, and
+  proving an explicit flat override restores the expected compatibility.
+- Redaction assertions on affected route responses: no Source Locators, bearer
+  tokens, FFmpeg command terms, raw paths, or raw backend diagnostics.
+
+### 7. Wrong vs Correct
+
+#### Wrong
+
+```rust
+let defaults = ClientPlaybackCapabilities::default();
+ClientPlaybackCapabilities {
+    device_family: query.device_family,
+    profile_version: query.profile_version,
+    video_codecs: csv_or_default(query.video_codec, defaults.video_codecs),
+    ..defaults
+}
+```
+
+This preserves profile identity but ignores the server-owned preset baseline.
+
+#### Correct
+
+```rust
+ClientPlaybackCapabilityRequest {
+    device_family: query.device_family,
+    profile_version: query.profile_version,
+    video_codecs: csv_values(query.video_codec),
+    ..ClientPlaybackCapabilityRequest::default()
+}
+.resolve()
+```
+
+The shared resolver centralizes profile lookup, additive fallback, and explicit
+field overrides before the pure planner receives client facts.
+
 ## Review Checklist
 
 - Is the planner still pure?
