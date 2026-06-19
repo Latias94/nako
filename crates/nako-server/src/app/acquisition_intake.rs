@@ -1001,7 +1001,10 @@ fn previous_watch_folder_stable_candidate(
         .and_then(|diagnostics| diagnostics.stable_candidate)
         .or_else(|| {
             existing
-                .filter(|candidate| candidate.state == AcquisitionIntakeCandidateState::Ready)
+                .filter(|candidate| {
+                    candidate.state == AcquisitionIntakeCandidateState::Ready
+                        && candidate.size_bytes == metadata.len
+                })
                 .map(|_| StableIntakeCandidateEvidence {
                     observation_key: watch_folder_observation_key(metadata),
                     consecutive_stable_observations: STABLE_INTAKE_REQUIRED_OBSERVATIONS,

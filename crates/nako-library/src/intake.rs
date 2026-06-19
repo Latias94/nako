@@ -130,7 +130,7 @@ impl StableIntakeObservationFacts {
 
     #[must_use]
     pub fn has_complete_stability_evidence(self) -> bool {
-        self.has_stability_size_evidence()
+        self.has_size && self.has_change_marker
     }
 }
 
@@ -363,10 +363,10 @@ mod tests {
     }
 
     #[test]
-    fn changed_size_resets_candidate_back_to_inspecting() {
+    fn different_size_observation_resets_candidate_back_to_inspecting() {
         let first = observe_stable_intake_candidate_with_facts(
             None,
-            "watch-folder:changing-size",
+            "watch-folder:size:100",
             StableIntakeObservationFacts {
                 has_size: true,
                 has_change_marker: false,
@@ -374,7 +374,7 @@ mod tests {
         );
         let second = observe_stable_intake_candidate_with_facts(
             Some(&first.evidence),
-            "watch-folder:changing-size-new",
+            "watch-folder:size:101",
             StableIntakeObservationFacts {
                 has_size: true,
                 has_change_marker: false,

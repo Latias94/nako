@@ -4,6 +4,7 @@ use crate::app::acquisition_intake::{
     RecordAcquisitionIntakeCandidateRequest, RecordResourceSearchSelectionRequest,
 };
 use crate::app::managed_import::{CreateManagedImportArtifactRequest, ManagedImportAppService};
+use async_trait::async_trait;
 use nako_addon_protocol::{AddonResourceLink, AddonResourceLinkType, AddonResourceSearchResult};
 use nako_core::{
     AcquisitionIntakeCandidateId, AcquisitionIntakeCandidateListFilter,
@@ -11,7 +12,74 @@ use nako_core::{
     AddonId, LibraryPreset, ManagedImportArtifactListFilter, ManagedImportArtifactState,
     ManagedImportRepository, ManagedImportSourceKind, NakoError, NewAcquisitionIntakeCandidate,
 };
-use nako_vfs::{LocalFsBackend, StorageBackend};
+use nako_vfs::{
+    ByteRange, LocalFsBackend, ObjectMetadata, ReadRange, ReadStream, StageRequest, StagedFile,
+    StorageBackend, StorageUri, VirtualFile,
+};
+
+#[derive(Clone, Debug)]
+struct SizeOnlyStatBackend {
+    inner: LocalFsBackend,
+}
+
+impl SizeOnlyStatBackend {
+    fn new(root: impl Into<std::path::PathBuf>) -> Result<Self> {
+        Ok(Self {
+            inner: LocalFsBackend::new(root)?,
+        })
+    }
+
+    fn strip_stability_markers(mut metadata: ObjectMetadata) -> ObjectMetadata {
+        metadata.modified_at = None;
+        metadata.etag = None;
+        metadata.fingerprint = None;
+        metadata
+    }
+}
+
+#[async_trait]
+impl StorageBackend for SizeOnlyStatBackend {
+    fn scheme(&self) -> &'static str {
+        self.inner.scheme()
+    }
+
+    async fn stat(&self, uri: &StorageUri) -> Result<ObjectMetadata> {
+        Ok(Self::strip_stability_markers(self.inner.stat(uri).await?))
+    }
+
+    async fn list(&self, uri: &StorageUri) -> Result<Vec<ObjectMetadata>> {
+        self.inner.list(uri).await.map(|entries| {
+            entries
+                .into_iter()
+                .map(Self::strip_stability_markers)
+                .collect()
+        })
+    }
+
+    async fn open_range(&self, uri: &StorageUri, range: Option<ByteRange>) -> Result<VirtualFile> {
+        self.inner.open_range(uri, range).await
+    }
+
+    async fn read_range(&self, uri: &StorageUri, range: Option<ByteRange>) -> Result<ReadRange> {
+        self.inner.read_range(uri, range).await
+    }
+
+    async fn stream_range(&self, uri: &StorageUri, range: Option<ByteRange>) -> Result<ReadStream> {
+        self.inner.stream_range(uri, range).await
+    }
+
+    async fn read_to_string(&self, uri: &StorageUri) -> Result<String> {
+        self.inner.read_to_string(uri).await
+    }
+
+    async fn write_string(&self, uri: &StorageUri, content: &str) -> Result<()> {
+        self.inner.write_string(uri, content).await
+    }
+
+    async fn stage(&self, request: StageRequest) -> Result<StagedFile> {
+        self.inner.stage(request).await
+    }
+}
 
 #[tokio::test]
 async fn acquisition_intake_service_records_and_lists_redacted_watch_folder_candidates_without_library_writes()
@@ -919,6 +987,198 @@ async fn acquisition_intake_watch_folder_discovery_updates_canonical_source_key_
     assert!(!body.contains("Canonical Movie"));
     assert!(!body.contains("local:///"));
     assert!(!body.contains("fingerprint="));
+}
+
+#[tokio::test]
+async fn acquisition_intake_watch_folder_discovery_size_only_stability_fallback_uses_size_changes()
+{
+    let store = NakoDatabase::connect_in_memory().await.unwrap();
+    store.migrate().await.unwrap();
+    let temp = tempfile::tempdir().unwrap();
+    let watch = temp.path().join("watch");
+    fs::create_dir_all(&watch).unwrap();
+    let media_path = watch.join("Size Only Movie.mkv");
+    fs::write(&media_path, b"partial").unwrap();
+    let library_id = LibraryId::new();
+    let app = acquisition_app_with_store(store.clone(), library_id, temp.path()).await;
+    let library = store.get_library(library_id).await.unwrap().unwrap();
+    let service = app.acquisition_intake();
+    let library_config = app
+        .config()
+        .libraries
+        .iter()
+        .find(|config| config.id == library.id)
+        .cloned()
+        .unwrap();
+    app.storage()
+        .replace_backend_for_test(
+            library_config,
+            Arc::new(SizeOnlyStatBackend::new(temp.path()).unwrap()),
+        )
+        .await;
+    let root_uri = StorageUri::from_parts("local", "watch").unwrap();
+
+    let first = service
+        .discover_watch_folder_candidates(DiscoverWatchFolderCandidatesRequest {
+            target_library_id: library.id,
+            root_uri: Some(root_uri.clone()),
+            max_depth: Some(1),
+        })
+        .await
+        .unwrap();
+    let second = service
+        .discover_watch_folder_candidates(DiscoverWatchFolderCandidatesRequest {
+            target_library_id: library.id,
+            root_uri: Some(root_uri.clone()),
+            max_depth: Some(1),
+        })
+        .await
+        .unwrap();
+    fs::write(&media_path, b"size-changed-now").unwrap();
+    let changed = service
+        .discover_watch_folder_candidates(DiscoverWatchFolderCandidatesRequest {
+            target_library_id: library.id,
+            root_uri: Some(root_uri),
+            max_depth: Some(1),
+        })
+        .await
+        .unwrap();
+
+    assert_eq!(first.inspecting_candidates, 1);
+    assert_eq!(first.newly_ready_candidates, 0);
+    assert_eq!(second.ready_candidates, 1);
+    assert_eq!(second.newly_ready_candidates, 1);
+    assert_eq!(changed.inspecting_candidates, 1);
+    assert_eq!(changed.ready_candidates, 0);
+    assert_eq!(changed.newly_ready_candidates, 0);
+
+    let records = store
+        .list_acquisition_intake_candidates(
+            AcquisitionIntakeCandidateListFilter {
+                target_library_id: Some(library.id),
+                state: Some(AcquisitionIntakeCandidateState::Inspecting),
+                source_kind: Some(AcquisitionIntakeSourceKind::WatchFolder),
+                managed_import_artifact_id: None,
+            },
+            PageRequest::first_page(),
+        )
+        .await
+        .unwrap();
+    assert_eq!(records.len(), 1);
+    assert_eq!(
+        records[0].state,
+        AcquisitionIntakeCandidateState::Inspecting
+    );
+    let diagnostics: serde_json::Value =
+        serde_json::from_str(records[0].diagnostics_json.as_deref().unwrap()).unwrap();
+    assert_eq!(diagnostics["classification"], "inspecting");
+    assert_eq!(diagnostics["stability_reason"], "observation_changed");
+    assert_eq!(
+        diagnostics["stable_candidate"]["consecutive_stable_observations"],
+        1
+    );
+    let body = serde_json::to_string(&changed).unwrap();
+    assert!(!body.contains(&temp.path().display().to_string()));
+    assert!(!body.contains("Size Only Movie"));
+    assert!(!body.contains("size-changed-now"));
+    assert!(!body.contains("local:///"));
+}
+
+#[tokio::test]
+async fn acquisition_intake_watch_folder_discovery_rehydrates_ready_without_diagnostics_as_size_only()
+ {
+    let store = NakoDatabase::connect_in_memory().await.unwrap();
+    store.migrate().await.unwrap();
+    let temp = tempfile::tempdir().unwrap();
+    let watch = temp.path().join("watch");
+    fs::create_dir_all(&watch).unwrap();
+    let media_path = watch.join("Legacy Ready Movie.mkv");
+    fs::write(&media_path, b"legacy-size").unwrap();
+    let library_id = LibraryId::new();
+    let app = acquisition_app_with_store(store.clone(), library_id, temp.path()).await;
+    let library = store.get_library(library_id).await.unwrap().unwrap();
+    let service = app.acquisition_intake();
+    let library_config = app
+        .config()
+        .libraries
+        .iter()
+        .find(|config| config.id == library.id)
+        .cloned()
+        .unwrap();
+    app.storage()
+        .replace_backend_for_test(
+            library_config,
+            Arc::new(SizeOnlyStatBackend::new(temp.path()).unwrap()),
+        )
+        .await;
+    let media_uri = StorageUri::from_parts("local", "watch/Legacy Ready Movie.mkv").unwrap();
+    let now_ms = crate::app::current_time_ms().unwrap();
+    store
+        .upsert_acquisition_intake_candidate(NewAcquisitionIntakeCandidate {
+            id: AcquisitionIntakeCandidateId::new(),
+            target_library_id: library.id,
+            source_kind: AcquisitionIntakeSourceKind::WatchFolder,
+            source_key: format!("watch_folder:{media_uri}"),
+            source_uri: media_uri.to_string(),
+            display_name: Some("Legacy Ready Movie.mkv".to_owned()),
+            intended_locator: None,
+            size_bytes: Some(11),
+            fingerprint: None,
+            managed_import_artifact_id: None,
+            state: AcquisitionIntakeCandidateState::Ready,
+            diagnostics_json: None,
+            first_seen_at_ms: now_ms,
+            last_seen_at_ms: now_ms,
+            created_at_ms: now_ms,
+            updated_at_ms: now_ms,
+        })
+        .await
+        .unwrap();
+
+    let first = service
+        .discover_watch_folder_candidates(DiscoverWatchFolderCandidatesRequest {
+            target_library_id: library.id,
+            root_uri: Some(StorageUri::from_parts("local", "watch").unwrap()),
+            max_depth: Some(1),
+        })
+        .await
+        .unwrap();
+    fs::write(&media_path, b"legacy-size++").unwrap();
+    let changed = service
+        .discover_watch_folder_candidates(DiscoverWatchFolderCandidatesRequest {
+            target_library_id: library.id,
+            root_uri: Some(StorageUri::from_parts("local", "watch").unwrap()),
+            max_depth: Some(1),
+        })
+        .await
+        .unwrap();
+
+    assert_eq!(first.ready_candidates, 1);
+    assert_eq!(first.newly_ready_candidates, 0);
+    assert_eq!(changed.inspecting_candidates, 1);
+    assert_eq!(changed.ready_candidates, 0);
+    assert_eq!(changed.newly_ready_candidates, 0);
+
+    let records = store
+        .list_acquisition_intake_candidates(
+            AcquisitionIntakeCandidateListFilter {
+                target_library_id: Some(library.id),
+                state: Some(AcquisitionIntakeCandidateState::Inspecting),
+                source_kind: Some(AcquisitionIntakeSourceKind::WatchFolder),
+                managed_import_artifact_id: None,
+            },
+            PageRequest::first_page(),
+        )
+        .await
+        .unwrap();
+    assert_eq!(records.len(), 1);
+    assert_eq!(
+        records[0].state,
+        AcquisitionIntakeCandidateState::Inspecting
+    );
+    let diagnostics: serde_json::Value =
+        serde_json::from_str(records[0].diagnostics_json.as_deref().unwrap()).unwrap();
+    assert_eq!(diagnostics["stability_reason"], "observation_changed");
 }
 
 #[tokio::test]
