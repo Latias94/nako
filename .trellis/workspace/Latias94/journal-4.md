@@ -352,3 +352,37 @@ Implemented playback runtime admission for remote bitrate, active session limits
 ### Next Steps
 
 - None - task complete
+
+
+## Session 157: Library watcher and media intake stability
+
+**Date**: 2026-06-19
+**Task**: Library watcher and media intake stability
+**Package**: nako
+**Branch**: `feat/admin-overview-durable-jobs`
+
+### Summary
+
+Implemented size-only watch-folder stability fallback, added server regression coverage, updated architecture/spec guidance, committed and pushed the change.
+
+### Main Changes
+
+(Add details)
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `e7ec3402` | (see git log) |
+
+### Testing
+
+- [OK] (Add test results)
+
+### Status
+
+[OK] **Completed**
+
+### Next Steps
+
+- None - task complete
