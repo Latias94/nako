@@ -12,7 +12,7 @@ use nako_api::extension::{
 };
 use nako_core::{AddonId, AddonStatus, NakoError, Result};
 
-use super::{AddonAppService, addon_surface_url, stored_granted_scopes};
+use super::{AddonAppService, addon_surface_url, helpers::stored_granted_scopes};
 impl AddonAppService {
     pub async fn check_addon_health(
         &self,

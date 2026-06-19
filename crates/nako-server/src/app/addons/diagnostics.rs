@@ -9,7 +9,7 @@ use nako_api::extension::{
 };
 use nako_core::{AddonId, AddonStatus, NakoError, Result};
 
-use super::{AddonAppService, stored_granted_scopes};
+use super::{AddonAppService, helpers::stored_granted_scopes};
 impl AddonAppService {
     pub async fn diagnose_addon_resource_call(
         &self,

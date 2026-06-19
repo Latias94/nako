@@ -36,9 +36,11 @@ use super::{
     diagnostics::{
         resource_diagnostic_status_for_client_error, safe_resource_diagnostic_error_code,
     },
-    fingerprint_key, library_file_write, optional_non_empty,
+    fingerprint_key,
+    helpers::stored_granted_scopes,
+    library_file_write, optional_non_empty,
     resource_flow::{SelectionSession, SelectionSessionLookup, SelectionSessionStore},
-    sha256_hex, stored_granted_scopes,
+    sha256_hex,
 };
 const SUBTITLE_SEARCH_DEFAULT_LIMIT: usize = 10;
 const SUBTITLE_SEARCH_MAX_LIMIT: usize = 50;

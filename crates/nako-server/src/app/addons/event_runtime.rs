@@ -28,8 +28,8 @@ use tracing::warn;
 use crate::config::AddonEventSchedulerConfig;
 
 use super::{
-    AddonAppService, declaration_scopes_granted, resolve_outbound_task_dispatch_secret,
-    stored_granted_scopes,
+    AddonAppService, helpers::resolve_outbound_task_dispatch_secret,
+    helpers::stored_granted_scopes, routing::declaration_scopes_granted,
 };
 
 const ADDON_EVENT_DELIVERY_LEASE_SECONDS: i64 = 300;

@@ -6,7 +6,10 @@ use nako_core::{
     DomainEventKind, JobKind, NakoError, NewAddonRoutingPlan, Result,
 };
 
-use super::{AddonAppService, ensure_addon_accepts_runtime_authority, stored_granted_scopes};
+use super::{
+    AddonAppService, helpers::ensure_addon_accepts_runtime_authority,
+    helpers::stored_granted_scopes,
+};
 impl AddonAppService {
     pub async fn sync_addon_routing_plans(
         &self,

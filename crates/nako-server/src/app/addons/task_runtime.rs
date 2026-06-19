@@ -21,14 +21,16 @@ use nako_core::{
 };
 
 use super::{
-    AddonAppService, declaration_scopes_granted, ensure_addon_accepts_runtime_authority,
+    AddonAppService,
     external_acquisition::{
         normalize_external_acquisition_action_task_output,
         normalize_external_acquisition_action_task_request,
     },
-    resolve_outbound_task_dispatch_secret,
+    helpers::ensure_addon_accepts_runtime_authority,
+    helpers::resolve_outbound_task_dispatch_secret,
+    helpers::stored_granted_scopes,
+    routing::declaration_scopes_granted,
     scan_metadata::scan_addon_bulk_metadata_scrape_continuation_request,
-    stored_granted_scopes,
 };
 use crate::app::runtime::{
     RUNTIME_RESOURCE_CLASS_ADDON_TASK, runtime_budget_class_for_job_resource_class,
