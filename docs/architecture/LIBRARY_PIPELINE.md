@@ -34,7 +34,7 @@ Storage event or scheduled scan
 | Bangumi provider | Shipped MVP plus endpoint-backed episode graph preview | `docs/workstreams/metadata-catalog/`; `docs/workstreams/metadata-provider-breadth/`; `docs/workstreams/bangumi-relations-and-episode-depth/` | Accepted-review application or Admin/Web governance before preview graph depth becomes accepted hierarchy. |
 | Addon-assisted metadata | Shipped guarded apply, bulk apply, provider mapping breadth, read-only apply recovery foundation, Web recovery UI, and repair seam proof | addon architecture lanes; `docs/workstreams/generated-artifact-metadata-authority-apply/`; `docs/workstreams/generated-artifact-bulk-metadata-apply/`; `docs/workstreams/generated-artifact-provider-mapping-breadth/`; `docs/workstreams/generated-artifact-apply-operations-repair/`; `docs/workstreams/web-admin-generated-artifact-recovery-ui/`; `docs/workstreams/generated-artifact-apply-repair-actions/` | Optional one-click repair wrapper or Web repair copy polish. |
 | Artwork artifact lifecycle | Shipped selection, lifecycle, variant, remediation foundation, selected artwork private cache-control, weak/wildcard conditional GET, and metadata-derived ETag preflight | managed artwork lanes; `.trellis/tasks/archive/2026-06/06-04-10-hour-media-server-architecture-campaign/implementation/lane-c-artwork-cache.md` | Delivery cache placeholders, selected-artwork invalidation, and broader derivative policy remain follow-ons. |
-| Watcher/debounce | Weak; stable-candidate evidence foundation shipped | This document | Continue `library-watcher-and-media-intake-stability` toward runtime/product integration. |
+| Watcher/debounce | Weak; size-only stable-candidate fallback shipped | This document | Continue `library-watcher-and-media-intake-stability` toward runtime/product integration. |
 
 ## Workstream Evidence
 
@@ -448,9 +448,9 @@ Shipped MVP foundation:
 
 - `nako-library::intake` defines a small stable-candidate evidence seam for
   repeated watch observations.
-- Intake candidates remain `Inspecting` on the first observation, become
-  `Stable` after the same redaction-safe observation key is seen twice
-  consecutively, and reset when the key changes.
+- Intake candidates remain `Inspecting` when size evidence is missing, become
+  `Stable` after the same redaction-safe size observation is seen twice
+  consecutively, and reset when the size observation changes.
 - Admin overview reports redaction-safe watch-folder runtime coverage so
   operators can see which configured libraries started a supervised watcher and
   which were skipped because monitoring was disabled, unsupported, or missing a

@@ -1,0 +1,5 @@
+{"file": ".trellis/spec/nako-server/backend/index.md", "reason": "Quality checks for watcher/intake and Admin readiness changes need server test guidance."}
+{"file": ".trellis/spec/nako-server/backend/quality-guidelines.md", "reason": "Validation of server behavior should follow the repository's server test standards."}
+{"file": ".trellis/spec/nako-library/backend/index.md", "reason": "Stable-candidate intake behavior must remain aligned with the library crate's quality rules."}
+{"file": ".trellis/spec/nako-library/backend/quality-guidelines.md", "reason": "Library intake classification and redaction-safe scan handoff need the library quality rules."}
+{"file": ".trellis/tasks/06-18-06-18-library-watcher-and-media-intake-stability/research/stable-size-fallback-grounding.md", "reason": "Check the implementation against the stable-size fallback grounding notes."}

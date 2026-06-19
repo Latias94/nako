@@ -39,8 +39,10 @@ Library workflow changes must preserve deterministic, bounded intake behavior.
 - Persist local inference evidence so provisional hierarchy decisions are
   explainable.
 - Require repeated unchanged intake observation evidence before a watcher
-  candidate becomes stable. If the observation key changes, stability must
-  reset for the next evaluation.
+  candidate becomes stable. Size evidence is the gate: a missing size keeps the
+  candidate in `Inspecting`, while repeated same-size observations may graduate
+  to `Stable`. If the observation key changes, stability must reset for the
+  next evaluation.
 - Keep watch-folder scan admission decisions pure and diagnostic-rich. A skip
   decision must expose a typed, redaction-safe reason such as waiting for
   stability, suppressed candidates, blocked candidates, discovery failures, or
@@ -62,8 +64,9 @@ Library workflow changes must preserve deterministic, bounded intake behavior.
 
 - Scan tests for supported extension filtering, recursion, ordering, stale cache
   propagation, and source fingerprint evidence.
-- Intake tests for first-observation inspect state, repeated identical
-  observations becoming stable, and changed-observation stability reset.
+- Intake tests for first-observation inspect state, size-only repeated
+  observations becoming stable, missing-size observations staying inspecting,
+  and changed-observation stability reset.
 - Ingestion tests for insert/update/tombstone disposition.
 - Probe tests for skip/force/failure persistence and bounded concurrency.
 - Local inference tests for provisional hierarchy and evidence.

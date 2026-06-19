@@ -1,0 +1,5 @@
+{"file": ".trellis/spec/nako-library/backend/index.md", "reason": "Watcher/intake stable-candidate behavior and scan admission live in the library crate."}
+{"file": ".trellis/spec/nako-library/backend/quality-guidelines.md", "reason": "Need the library crate's current test and quality expectations for intake stability changes."}
+{"file": ".trellis/spec/nako-server/backend/index.md", "reason": "Watch-folder runtime supervision and Admin operator readiness are owned by nako-server."}
+{"file": ".trellis/spec/nako-server/backend/directory-structure.md", "reason": "Task will touch server app/service/runtime layout for watcher and intake seams."}
+{"file": ".trellis/tasks/06-18-06-18-library-watcher-and-media-intake-stability/research/stable-size-fallback-grounding.md", "reason": "Grounding for the stable-size fallback slice and the remaining watcher/intake gap."}

@@ -14,7 +14,7 @@ use nako_library::{
     StableIntakeCandidateReason, StableIntakeCandidateState, StableIntakeObservationFacts,
     observe_stable_intake_candidate_with_facts,
 };
-use nako_vfs::{ObjectKind, ObjectMetadata, StorageBackend, StorageUri};
+use nako_vfs::{ObjectKind, ObjectMetadata, StorageBackend, StorageCapabilities, StorageUri};
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
 use std::sync::Arc;
@@ -1292,6 +1292,32 @@ fn safe_error_message(err: &NakoError) -> String {
 mod tests {
     use super::*;
 
+    fn watch_folder_candidate_record(
+        source_uri: &str,
+        size_bytes: Option<u64>,
+        state: AcquisitionIntakeCandidateState,
+        diagnostics_json: Option<String>,
+    ) -> AcquisitionIntakeCandidateRecord {
+        AcquisitionIntakeCandidateRecord {
+            id: AcquisitionIntakeCandidateId::new(),
+            target_library_id: LibraryId::new(),
+            source_kind: AcquisitionIntakeSourceKind::WatchFolder,
+            source_key: format!("watch_folder:{source_uri}"),
+            source_uri: source_uri.to_owned(),
+            display_name: None,
+            intended_locator: None,
+            size_bytes,
+            fingerprint: None,
+            managed_import_artifact_id: None,
+            state,
+            diagnostics_json,
+            first_seen_at_ms: 0,
+            last_seen_at_ms: 0,
+            created_at_ms: 0,
+            updated_at_ms: 0,
+        }
+    }
+
     #[test]
     fn watch_folder_discovery_root_scope_allows_descendants_only() {
         let library = Library {
@@ -1321,6 +1347,103 @@ mod tests {
             &library,
             &StorageUri::parse("local:///Movies/../Secrets").unwrap()
         ));
+    }
+
+    #[test]
+    fn watch_folder_candidate_classification_accepts_size_only_stability_fallback() {
+        let metadata = ObjectMetadata {
+            uri: StorageUri::parse("local:///watch/Stable Movie.mkv").unwrap(),
+            kind: ObjectKind::File,
+            len: Some(1024),
+            modified_at: None,
+            etag: None,
+            fingerprint: None,
+            capabilities: StorageCapabilities::empty(),
+            cache: None,
+        };
+
+        let first = classify_watch_folder_candidate(&metadata, None);
+        let existing = watch_folder_candidate_record(
+            metadata.uri.as_str(),
+            metadata.len,
+            AcquisitionIntakeCandidateState::Inspecting,
+            Some(first.clone().diagnostics_json()),
+        );
+        let second = classify_watch_folder_candidate(&metadata, Some(&existing));
+        let changed = classify_watch_folder_candidate(
+            &ObjectMetadata {
+                len: Some(2048),
+                ..metadata.clone()
+            },
+            Some(&existing),
+        );
+        let missing_size = classify_watch_folder_candidate(
+            &ObjectMetadata {
+                len: None,
+                ..metadata.clone()
+            },
+            None,
+        );
+
+        assert_eq!(first.state, AcquisitionIntakeCandidateState::Inspecting);
+        assert_eq!(first.reason, WatchFolderCandidateReason::Inspecting);
+        assert_eq!(
+            first.stability_reason,
+            Some(StableIntakeCandidateReason::FirstObservation)
+        );
+        assert_eq!(
+            first
+                .stable_candidate
+                .as_ref()
+                .map(|value| value.consecutive_stable_observations),
+            Some(1)
+        );
+        assert_eq!(second.state, AcquisitionIntakeCandidateState::Ready);
+        assert_eq!(second.reason, WatchFolderCandidateReason::Ready);
+        assert_eq!(
+            second.stability_reason,
+            Some(StableIntakeCandidateReason::StabilityThresholdReached)
+        );
+        assert_eq!(
+            second
+                .stable_candidate
+                .as_ref()
+                .map(|value| value.consecutive_stable_observations),
+            Some(2)
+        );
+        assert_eq!(changed.state, AcquisitionIntakeCandidateState::Inspecting);
+        assert_eq!(changed.reason, WatchFolderCandidateReason::Inspecting);
+        assert_eq!(
+            changed.stability_reason,
+            Some(StableIntakeCandidateReason::ObservationChanged)
+        );
+        assert_eq!(
+            changed
+                .stable_candidate
+                .as_ref()
+                .map(|value| value.consecutive_stable_observations),
+            Some(1)
+        );
+        assert_eq!(
+            missing_size.state,
+            AcquisitionIntakeCandidateState::Inspecting
+        );
+        assert_eq!(missing_size.reason, WatchFolderCandidateReason::Inspecting);
+        assert_eq!(
+            missing_size.stability_reason,
+            Some(StableIntakeCandidateReason::IncompleteObservationEvidence)
+        );
+        assert_eq!(
+            missing_size
+                .stable_candidate
+                .as_ref()
+                .map(|value| value.consecutive_stable_observations),
+            Some(0)
+        );
+        assert!(second.newly_ready);
+        assert!(!first.newly_ready);
+        assert!(!changed.newly_ready);
+        assert!(!missing_size.newly_ready);
     }
 }
 

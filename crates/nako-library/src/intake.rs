@@ -124,8 +124,13 @@ impl StableIntakeObservationFacts {
     }
 
     #[must_use]
+    pub fn has_stability_size_evidence(self) -> bool {
+        self.has_size
+    }
+
+    #[must_use]
     pub fn has_complete_stability_evidence(self) -> bool {
-        self.has_size && self.has_change_marker
+        self.has_stability_size_evidence()
     }
 }
 
@@ -155,7 +160,7 @@ pub fn observe_stable_intake_candidate_with_facts(
     facts: StableIntakeObservationFacts,
 ) -> StableIntakeCandidateDecision {
     let observation_key = observation_key.into();
-    if !facts.has_complete_stability_evidence() {
+    if !facts.has_stability_size_evidence() {
         return StableIntakeCandidateDecision {
             state: StableIntakeCandidateState::Inspecting,
             reason: StableIntakeCandidateReason::IncompleteObservationEvidence,
@@ -295,6 +300,97 @@ mod tests {
     }
 
     #[test]
+    fn size_only_observation_can_stabilize_after_repeated_same_size_evidence() {
+        let first = observe_stable_intake_candidate_with_facts(
+            None,
+            "watch-folder:size-only",
+            StableIntakeObservationFacts {
+                has_size: true,
+                has_change_marker: false,
+            },
+        );
+        let second = observe_stable_intake_candidate_with_facts(
+            Some(&first.evidence),
+            "watch-folder:size-only",
+            StableIntakeObservationFacts {
+                has_size: true,
+                has_change_marker: false,
+            },
+        );
+
+        assert_eq!(first.state, StableIntakeCandidateState::Inspecting);
+        assert_eq!(first.reason, StableIntakeCandidateReason::FirstObservation);
+        assert_eq!(first.evidence.consecutive_stable_observations, 1);
+        assert_eq!(second.state, StableIntakeCandidateState::Stable);
+        assert_eq!(
+            second.reason,
+            StableIntakeCandidateReason::StabilityThresholdReached
+        );
+        assert_eq!(second.evidence.consecutive_stable_observations, 2);
+    }
+
+    #[test]
+    fn missing_size_evidence_stays_inspecting() {
+        let first = observe_stable_intake_candidate_with_facts(
+            None,
+            "watch-folder:missing-size",
+            StableIntakeObservationFacts {
+                has_size: false,
+                has_change_marker: true,
+            },
+        );
+        let second = observe_stable_intake_candidate_with_facts(
+            Some(&first.evidence),
+            "watch-folder:missing-size",
+            StableIntakeObservationFacts {
+                has_size: false,
+                has_change_marker: true,
+            },
+        );
+
+        assert_eq!(first.state, StableIntakeCandidateState::Inspecting);
+        assert_eq!(
+            first.reason,
+            StableIntakeCandidateReason::IncompleteObservationEvidence
+        );
+        assert_eq!(first.evidence.consecutive_stable_observations, 0);
+        assert_eq!(second.state, StableIntakeCandidateState::Inspecting);
+        assert_eq!(
+            second.reason,
+            StableIntakeCandidateReason::IncompleteObservationEvidence
+        );
+        assert_eq!(second.evidence.consecutive_stable_observations, 0);
+    }
+
+    #[test]
+    fn changed_size_resets_candidate_back_to_inspecting() {
+        let first = observe_stable_intake_candidate_with_facts(
+            None,
+            "watch-folder:changing-size",
+            StableIntakeObservationFacts {
+                has_size: true,
+                has_change_marker: false,
+            },
+        );
+        let second = observe_stable_intake_candidate_with_facts(
+            Some(&first.evidence),
+            "watch-folder:changing-size-new",
+            StableIntakeObservationFacts {
+                has_size: true,
+                has_change_marker: false,
+            },
+        );
+
+        assert_eq!(first.state, StableIntakeCandidateState::Inspecting);
+        assert_eq!(second.state, StableIntakeCandidateState::Inspecting);
+        assert_eq!(
+            second.reason,
+            StableIntakeCandidateReason::ObservationChanged
+        );
+        assert_eq!(second.evidence.consecutive_stable_observations, 1);
+    }
+
+    #[test]
     fn changed_observation_resets_stability_counter() {
         let stable = observe_stable_intake_candidate(
             Some(&StableIntakeCandidateEvidence {
@@ -331,19 +427,6 @@ mod tests {
                 has_change_marker: true,
             },
         );
-        let missing_change_marker = observe_stable_intake_candidate_with_facts(
-            Some(&repeated_incomplete.evidence),
-            "sha256:unknown-size",
-            StableIntakeObservationFacts {
-                has_size: true,
-                has_change_marker: false,
-            },
-        );
-        let first_complete = observe_stable_intake_candidate_with_facts(
-            Some(&missing_change_marker.evidence),
-            "sha256:unknown-size",
-            StableIntakeObservationFacts::complete(),
-        );
 
         assert_eq!(
             incomplete.reason,
@@ -358,22 +441,6 @@ mod tests {
             repeated_incomplete.evidence.consecutive_stable_observations,
             0
         );
-        assert_eq!(
-            missing_change_marker.reason,
-            StableIntakeCandidateReason::IncompleteObservationEvidence
-        );
-        assert_eq!(
-            missing_change_marker
-                .evidence
-                .consecutive_stable_observations,
-            0
-        );
-        assert_eq!(
-            first_complete.reason,
-            StableIntakeCandidateReason::ObservationChanged
-        );
-        assert_eq!(first_complete.state, StableIntakeCandidateState::Inspecting);
-        assert_eq!(first_complete.evidence.consecutive_stable_observations, 1);
     }
 
     #[test]

@@ -74,6 +74,9 @@ Use these gates for `crates/nako-server` feature work.
   rather than `scan_job_id`, collapse discovery failures to counts, and prefer
   a tick whose status matches the action-plan source reason when multiple
   library ticks exist.
+- Watch-folder intake tests must prove size-only stability fallback, missing
+  size evidence staying `Inspecting`, and changed size resetting the candidate
+  before scan admission treats it as ready.
 - Admin operator readiness changes for Storage must include unresolved VFS cache
   repair pressure. Healthy/no-action repair diagnostics must not degrade
   readiness, but any current unresolved repair target with retryable refresh
