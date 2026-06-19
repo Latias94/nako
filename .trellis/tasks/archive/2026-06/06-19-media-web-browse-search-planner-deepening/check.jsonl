@@ -1,0 +1,3 @@
+{"file":".trellis/spec/admin-web/frontend/index.md","reason":"Validation should confirm route/search behavior follows current Admin Web guidance."}
+{"file":".trellis/spec/admin-web/frontend/routes-forms-and-tests.md","reason":"Check coverage should verify URL-owned filters, reset behavior, and redaction-safe tests."}
+{"file":".trellis/tasks/archive/2026-06/06-15-media-web-items-browse-filter/research/ui-patterns.md","reason":"Use the existing local UI pattern note as a check reference for route-owned search state."}

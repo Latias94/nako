@@ -1,0 +1,5 @@
+{"file":".trellis/spec/admin-web/frontend/index.md","reason":"Admin Web route and filter work must follow the current frontend guidance."}
+{"file":".trellis/spec/admin-web/frontend/routes-forms-and-tests.md","reason":"This task changes route-owned browse state, filter controls, data-source forwarding, and route tests."}
+{"file":".trellis/spec/guides/index.md","reason":"Cross-layer planning guide is relevant because browse state crosses route, page, and data-source seams."}
+{"file":".trellis/tasks/archive/2026-06/06-15-media-web-items-browse-filter/research/ui-patterns.md","reason":"Records the local filter/search/reset pattern to reuse for the Media browse planner."}
+{"file":".trellis/tasks/archive/2026-06/06-15-media-web-items-browse-filter/research/media-capabilities.md","reason":"Documents current Media Web and Public Client browse capability constraints."}

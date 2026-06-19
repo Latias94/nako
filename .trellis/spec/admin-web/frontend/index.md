@@ -25,6 +25,8 @@ redaction, route/query, and selected mutation coverage.
 - `apps/admin-web/src/features/jobs/JobsPage.tsx`
 - `apps/admin-web/src/features/settings/SettingsPage.tsx`
 - `apps/admin-web/src/surfaces/media/MediaPages.tsx`
+- `apps/admin-web/src/surfaces/media/mediaBrowsePlanner.ts`
+- `apps/admin-web/src/surfaces/media/mediaBrowsePlanner.test.ts`
 - `apps/admin-web/src/adminApi/client.ts`
 - `apps/admin-web/src/adminApi/dataSource.ts`
 - `apps/admin-web/src/App.test.tsx`

@@ -2566,6 +2566,10 @@ export const mockPlaybackRuntime: AdminPlaybackRuntimeDiagnosticsResponse = {
     stage_permits_max: 2,
     state_scope: "process_local",
   },
+  session_admission: {
+    active_session_limit: 4,
+    idle_session_timeout_ms: 900000,
+  },
   staging: {
     max_bytes: 10737418240,
     retention_ms: 86400000,
@@ -3200,6 +3204,8 @@ export const mockSystemConfig: AdminServerConfigDiagnosticsResponse = {
   playback: {
     remote_stream_concurrency: 4,
     remote_stage_concurrency: 2,
+    active_playback_session_limit: 4,
+    idle_playback_session_timeout_ms: 900000,
     hls_segment_cleanup_enabled: true,
     hls_segment_keep_ms: 60000,
     transcode_artifact_cleanup_on_startup: false,
@@ -3486,6 +3492,10 @@ export const mockPlaybackRuntimeSettings: AdminPlaybackRuntimeSettingsResponse =
     remux_timeout_ms: mockSystemConfig.runtime.remux_timeout_ms,
     remote_stream_concurrency: mockSystemConfig.playback.remote_stream_concurrency,
     remote_stage_concurrency: mockSystemConfig.playback.remote_stage_concurrency,
+    active_playback_session_limit:
+      mockSystemConfig.playback.active_playback_session_limit,
+    idle_playback_session_timeout_ms:
+      mockSystemConfig.playback.idle_playback_session_timeout_ms,
     staging_max_bytes: mockSystemConfig.staging.max_bytes,
     staging_retention_ms: mockSystemConfig.staging.retention_ms,
     staging_cleanup_on_startup: mockSystemConfig.staging.cleanup_on_startup,

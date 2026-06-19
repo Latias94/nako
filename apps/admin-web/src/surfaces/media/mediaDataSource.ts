@@ -132,13 +132,13 @@ export function createPublicClientMediaDataSource(
       return liveResult(await client.listLibrarySources(libraryId, page));
     },
     async listLibraryItems(libraryId, query = defaultPage()) {
-      return liveResult(await client.listLibraryItems(libraryId, query));
+      return liveResult(await client.listLibraryItems(libraryId, toLibraryItemsQuery(query)));
     },
     async listItems(query = defaultPage()) {
       return liveResult(await client.listItems(toTopLevelItemsPageQuery(query)));
     },
     async searchItems(query) {
-      return liveResult(await client.searchItems({ limit: 20, offset: 0, ...query }));
+      return liveResult(await client.searchItems(toSearchItemsQuery(query)));
     },
     async getItem(itemId) {
       return liveResult(await client.getItem(itemId));
@@ -286,10 +286,32 @@ function defaultPage(): PageQuery {
   return { limit: 20, offset: 0 };
 }
 
+function toLibraryItemsQuery(query: MediaItemsBrowseQuery): MediaItemsBrowseQuery {
+  return {
+    facet: query.facet,
+    limit: query.limit,
+    offset: query.offset,
+    order: query.order,
+    sort: query.sort,
+    watch_state: query.watch_state,
+  };
+}
+
 function toTopLevelItemsPageQuery(query: PageQuery): PageQuery {
   return {
     limit: query.limit,
     offset: query.offset,
+  };
+}
+
+function toSearchItemsQuery(
+  query: { facet?: string | string[]; q?: string } & PageQuery,
+): { facet?: string | string[]; limit: number; offset: number; q?: string } {
+  return {
+    limit: query.limit ?? 20,
+    offset: query.offset ?? 0,
+    ...(query.facet !== undefined ? { facet: query.facet } : {}),
+    ...(query.q !== undefined ? { q: query.q } : {}),
   };
 }
 

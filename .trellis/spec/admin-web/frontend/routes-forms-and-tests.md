@@ -248,7 +248,9 @@ Keep it safe, local, and read-only.
   forwarding.
 - Evidence: `src/App.tsx`, `src/routes/MediaItemsRouteModule.tsx`,
   `src/surfaces/media/MediaCore.ts`, `src/surfaces/media/MediaPages.tsx`,
+  `src/surfaces/media/mediaBrowsePlanner.ts`,
   `src/surfaces/media/mediaDataSource.ts`,
+  `src/surfaces/media/mediaBrowsePlanner.test.ts`,
   `src/surfaces/media/mediaDataSource.test.ts`, and
   `src/surfaces/media/mediaSurface.test.tsx`.
 
@@ -271,6 +273,9 @@ Keep it safe, local, and read-only.
 
 - `/media/items` owns its browse state in the URL. Do not keep search, facet,
   sort, order, watch state, limit, or offset only in component state.
+- Keep browse query assembly, reset behavior, and search/list branching in a
+  dedicated planner helper next to `MediaPages.tsx`; page components should
+  delegate to that helper instead of inlining the decision tree.
 - Changing search, facet, sort, order, watch state, or limit resets `offset` to
   `0`.
 - Clear/reset removes `q`, `facet`, `sort`, `order`, and `watch_state`, then
@@ -323,6 +328,9 @@ Keep it safe, local, and read-only.
   - `q` calls `searchItems` and no-q calls `listItems`.
   - `watch_state=any` normalizes to default omitted state.
   - unsafe errors and unsafe returned fields are not rendered.
+- Planner tests assert the browse helper derives reset/search changes and the
+  query payloads passed into `loadMediaItems`, `loadLibraryItems`, and
+  `loadMediaSearch`.
 - Data-source tests assert:
   - live top-level `listItems` forwards only pagination to `/items`;
   - live `searchItems` forwards `q`, `facet`, `limit`, and `offset` to `/search`.

@@ -484,6 +484,49 @@ describe("Media Web surface", () => {
     });
   });
 
+  it("redacts Media Items search errors with static copy", async () => {
+    window.history.pushState(null, "", "/media/items?q=Rain&limit=1&offset=0");
+    const dataSource = createFixtureMediaDataSource();
+    const rawSearchError =
+      "HTTP 500 for /search?ticket=nako_bpt_secret with bearer secret-token and fingerprint raw-backend";
+    const searchItems = vi.fn(async () => {
+      throw new Error(rawSearchError);
+    });
+    const factory = vi.fn(
+      () =>
+        ({
+          ...dataSource,
+          searchItems,
+        }) as MediaWebDataSource,
+    ) satisfies MediaDataSourceFactory;
+
+    const { container } = render(
+      <App
+        dataSource={emptyAdminDataSource()}
+        initialMediaConnection={{ mode: "fixture" }}
+        mediaDataSourceFactory={factory}
+      />,
+    );
+
+    expect(await screen.findByRole("heading", { name: "Media Items" })).toBeInTheDocument();
+    expect(await screen.findByText("Media items could not be loaded.")).toBeInTheDocument();
+    await waitFor(() => {
+      expect(searchItems).toHaveBeenCalledWith({
+        facet: undefined,
+        limit: 1,
+        offset: 0,
+        q: "Rain",
+      });
+    });
+    expect(container.textContent).not.toContain(rawSearchError);
+    expect(container.textContent).not.toContain("HTTP 500");
+    expect(container.textContent).not.toContain("raw-backend");
+    expect(container.textContent).not.toContain("nako_bpt_secret");
+    expect(container.textContent).not.toContain("/search?");
+    expect(container.textContent).not.toContain("secret-token");
+    expect(container.textContent).not.toContain("fingerprint");
+  });
+
   it("normalizes Media Items watch_state any as the default filter", async () => {
     window.history.pushState(null, "", "/media/items?watch_state=any&limit=1&offset=1");
     const dataSource = createFixtureMediaDataSource();

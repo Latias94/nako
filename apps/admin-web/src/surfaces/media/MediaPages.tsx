@@ -19,17 +19,29 @@ import {
   formatRuntimeMs,
   useMediaLoad,
   type MediaAsyncState,
-  type MediaItemsBrowseOrder,
   type MediaItemsBrowseSearch,
-  type MediaItemsBrowseSort,
-  type MediaItemsWatchState,
   type MediaPageSearch,
   type MediaSearchChange,
   type MediaSearchRouteSearch,
 } from "./MediaCore";
+import {
+  loadLibraryItems,
+  loadMediaItems,
+  loadMediaSearch,
+  mediaItemsBrowseActiveFilterCount,
+  mediaItemsBrowseFacetChange,
+  mediaItemsBrowseHasPaginationDelta,
+  mediaItemsBrowseLimitChange,
+  mediaItemsBrowseOrderChange,
+  mediaItemsBrowseResetSearch,
+  mediaItemsBrowseSearchChange,
+  mediaItemsBrowseSortChange,
+  mediaItemsBrowseWatchStateChange,
+  mediaSearchSubmitChange,
+} from "./mediaBrowsePlanner";
 import { MediaConnectPage } from "./MediaConnectPage";
 import { useMediaSession } from "./MediaSession";
-import type { MediaLoadResult, MediaWebDataSource } from "./mediaDataSource";
+import type { MediaWebDataSource } from "./mediaDataSource";
 
 export type {
   MediaItemSearch,
@@ -43,66 +55,7 @@ export { MediaConnectPage } from "./MediaConnectPage";
 const RECENTLY_ADDED_ITEMS_ERROR = "Recently added media could not be loaded.";
 const MEDIA_ITEMS_ERROR = "Media items could not be loaded.";
 const LIBRARY_ITEMS_ERROR = "Library items could not be loaded.";
-
-async function loadMediaItems(
-  source: MediaWebDataSource,
-  search: MediaItemsBrowseSearch,
-  errorMessage: string,
-): Promise<MediaLoadResult<ItemsResponse>> {
-  try {
-    const result = search.q
-      ? searchResultToItemsResult(
-          await source.searchItems({
-            facet: search.facet,
-            limit: search.limit,
-            offset: search.offset,
-            q: search.q,
-          }),
-        )
-      : await source.listItems(search);
-    return {
-      ...result,
-      error: result.error ? errorMessage : undefined,
-    };
-  } catch {
-    throw new Error(errorMessage);
-  }
-}
-
-async function loadLibraryItems(
-  source: MediaWebDataSource,
-  libraryId: string,
-  search: MediaItemsBrowseSearch,
-): Promise<MediaLoadResult<ItemsResponse>> {
-  try {
-    const result = await source.listLibraryItems(libraryId, {
-      ...(search.facet ? { facet: search.facet } : {}),
-      limit: search.limit,
-      offset: search.offset,
-      ...(search.order ? { order: search.order } : {}),
-      ...(search.sort ? { sort: search.sort } : {}),
-      ...(search.watch_state ? { watch_state: search.watch_state } : {}),
-    });
-    return {
-      ...result,
-      error: result.error ? LIBRARY_ITEMS_ERROR : undefined,
-    };
-  } catch {
-    throw new Error(LIBRARY_ITEMS_ERROR);
-  }
-}
-
-function searchResultToItemsResult(
-  result: MediaLoadResult<SearchResponse>,
-): MediaLoadResult<ItemsResponse> {
-  return {
-    ...result,
-    value: {
-      items: result.value.hits.map((hit) => hit.item),
-      page: result.value.page,
-    },
-  };
-}
+const MEDIA_SEARCH_ERROR = "Search results could not be loaded.";
 
 export function MediaHomePage() {
   const { dataSource } = useMediaSession();
@@ -191,24 +144,10 @@ export function MediaItemsPage({
   const result = useMediaLoad(
     dataSource,
     (source) => loadMediaItems(source, search, MEDIA_ITEMS_ERROR),
-    [
-      search.facet,
-      search.limit,
-      search.offset,
-      search.order,
-      search.q,
-      search.sort,
-      search.watch_state,
-    ],
+    [search.facet, search.limit, search.offset, search.order, search.q, search.sort, search.watch_state],
   );
-  const activeFilterCount = [
-    search.facet,
-    search.order,
-    search.q,
-    search.sort,
-    search.watch_state,
-  ].filter((value) => value !== undefined).length;
-  const hasPaginationDelta = search.limit !== 20 || search.offset !== 0;
+  const activeFilterCount = mediaItemsBrowseActiveFilterCount(search);
+  const hasPaginationDelta = mediaItemsBrowseHasPaginationDelta(search);
 
   if (!dataSource) {
     return <MediaConnectPage />;
@@ -262,9 +201,7 @@ function MediaItemsBrowseFilters({
             aria-label="Search media items"
             placeholder="title or keyword"
             value={search.q ?? ""}
-            onChange={(event) =>
-              onSearchChange({ offset: 0, q: event.target.value || undefined })
-            }
+            onChange={(event) => onSearchChange(mediaItemsBrowseSearchChange(event.target.value))}
           />
         </FilterField>
       ) : null}
@@ -273,21 +210,14 @@ function MediaItemsBrowseFilters({
           aria-label="Media item facet filter"
           placeholder="kind:movie"
           value={search.facet ?? ""}
-          onChange={(event) =>
-            onSearchChange({ facet: event.target.value || undefined, offset: 0 })
-          }
+          onChange={(event) => onSearchChange(mediaItemsBrowseFacetChange(event.target.value))}
         />
       </FilterField>
       <FilterField label="Sort">
         <select
           aria-label="Media item sort"
           value={search.sort ?? ""}
-          onChange={(event) =>
-            onSearchChange({
-              offset: 0,
-              sort: mediaItemsBrowseSortValue(event.target.value),
-            })
-          }
+          onChange={(event) => onSearchChange(mediaItemsBrowseSortChange(event.target.value))}
         >
           <option value="">Default</option>
           <option value="date_added">Date added</option>
@@ -300,12 +230,7 @@ function MediaItemsBrowseFilters({
         <select
           aria-label="Media item sort order"
           value={search.order ?? ""}
-          onChange={(event) =>
-            onSearchChange({
-              offset: 0,
-              order: mediaItemsBrowseOrderValue(event.target.value),
-            })
-          }
+          onChange={(event) => onSearchChange(mediaItemsBrowseOrderChange(event.target.value))}
         >
           <option value="">Default</option>
           <option value="desc">Descending</option>
@@ -316,12 +241,7 @@ function MediaItemsBrowseFilters({
         <select
           aria-label="Media item watch state filter"
           value={search.watch_state ?? "any"}
-          onChange={(event) =>
-            onSearchChange({
-              offset: 0,
-              watch_state: mediaItemsWatchStateValue(event.target.value),
-            })
-          }
+          onChange={(event) => onSearchChange(mediaItemsBrowseWatchStateChange(event.target.value))}
         >
           <option value="any">Any</option>
           <option value="unwatched">Unwatched</option>
@@ -335,28 +255,13 @@ function MediaItemsBrowseFilters({
           min={1}
           type="number"
           value={search.limit}
-          onChange={(event) =>
-            onSearchChange({
-              limit: positiveNumberInput(event.target.value, search.limit, 1),
-              offset: 0,
-            })
-          }
+          onChange={(event) => onSearchChange(mediaItemsBrowseLimitChange(event.target.value, search.limit))}
         />
       </FilterField>
       <FilterActions>
         <Button
           disabled={activeFilterCount === 0 && !hasPaginationDelta}
-          onClick={() =>
-            onSearchChange({
-              facet: undefined,
-              limit: 20,
-              offset: 0,
-              order: undefined,
-              q: undefined,
-              sort: undefined,
-              watch_state: undefined,
-            })
-          }
+          onClick={() => onSearchChange(mediaItemsBrowseResetSearch())}
           variant="ghost"
         >
           <X size={16} />
@@ -365,30 +270,6 @@ function MediaItemsBrowseFilters({
       </FilterActions>
     </FilterBar>
   );
-}
-
-function positiveNumberInput(value: string, fallback: number, minimum: number) {
-  const parsed = Number(value);
-  return Number.isFinite(parsed) && parsed >= minimum ? parsed : fallback;
-}
-
-function mediaItemsBrowseSortValue(value: string): MediaItemsBrowseSort | undefined {
-  return value === "title" ||
-    value === "release_date" ||
-    value === "date_added" ||
-    value === "last_played"
-    ? value
-    : undefined;
-}
-
-function mediaItemsBrowseOrderValue(value: string): MediaItemsBrowseOrder | undefined {
-  return value === "asc" || value === "desc" ? value : undefined;
-}
-
-function mediaItemsWatchStateValue(value: string): MediaItemsWatchState | undefined {
-  return value === "watched" || value === "unwatched" || value === "in_progress"
-    ? value
-    : undefined;
 }
 
 export function MediaLibrariesPage({
@@ -455,24 +336,11 @@ export function MediaLibraryDetailPage({
   );
   const items = useMediaLoad(
     dataSource,
-    (source) => loadLibraryItems(source, libraryId, search),
-    [
-      libraryId,
-      search.facet,
-      search.limit,
-      search.offset,
-      search.order,
-      search.sort,
-      search.watch_state,
-    ],
+    (source) => loadLibraryItems(source, libraryId, search, LIBRARY_ITEMS_ERROR),
+    [libraryId, search.facet, search.limit, search.offset, search.order, search.sort, search.watch_state],
   );
-  const activeFilterCount = [
-    search.facet,
-    search.order,
-    search.sort,
-    search.watch_state,
-  ].filter((value) => value !== undefined).length;
-  const hasPaginationDelta = search.limit !== 20 || search.offset !== 0;
+  const activeFilterCount = mediaItemsBrowseActiveFilterCount(search);
+  const hasPaginationDelta = mediaItemsBrowseHasPaginationDelta(search);
 
   if (!dataSource) {
     return <MediaConnectPage />;
@@ -530,13 +398,7 @@ export function MediaSearchPage({
   const [query, setQuery] = useState(search.q ?? "");
   const result = useMediaLoad(
     dataSource,
-    (source) =>
-      source.searchItems({
-        facet: search.facet,
-        limit: search.limit,
-        offset: search.offset,
-        q: search.q,
-      }),
+    (source) => loadMediaSearch(source, search, MEDIA_SEARCH_ERROR),
     [search.facet, search.limit, search.offset, search.q],
   );
 
@@ -561,7 +423,7 @@ export function MediaSearchPage({
         className="mediaSearch"
         onSubmit={(event) => {
           event.preventDefault();
-          onSearchChange({ offset: 0, q: query.trim() || undefined });
+          onSearchChange(mediaSearchSubmitChange(query));
         }}
       >
         <label>
@@ -785,7 +647,7 @@ function MediaSearchResults({ result }: { result: MediaAsyncState<SearchResponse
   }
 
   if (result.error) {
-    return <div className="mediaError">{result.error}</div>;
+    return <div className="mediaError">{MEDIA_SEARCH_ERROR}</div>;
   }
 
   return (
