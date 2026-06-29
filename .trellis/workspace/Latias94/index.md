@@ -8,8 +8,8 @@
 
 <!-- @@@auto:current-status -->
 - **Active File**: `journal-4.md`
-- **Total Sessions**: 157
-- **Last Active**: 2026-06-19
+- **Total Sessions**: 158
+- **Last Active**: 2026-06-29
 <!-- @@@/auto:current-status -->
 
 ---
@@ -19,7 +19,7 @@
 <!-- @@@auto:active-documents -->
 | File | Lines | Status |
 |------|-------|--------|
-| `journal-4.md` | ~388 | Active |
+| `journal-4.md` | ~422 | Active |
 | `journal-3.md` | ~1979 | Archived |
 | `journal-2.md` | ~1991 | Archived |
 | `journal-1.md` | ~1972 | Archived |
@@ -32,6 +32,7 @@
 <!-- @@@auto:session-history -->
 | # | Date | Title | Commits | Branch |
 |---|------|-------|---------|--------|
+| 158 | 2026-06-29 | Watch-folder scan admission diagnostics | `d08ddebcbafacaf288a862dfe996ce550fc91191` | `main` |
 | 157 | 2026-06-19 | Library watcher and media intake stability | `e7ec3402` | `feat/admin-overview-durable-jobs` |
 | 156 | 2026-06-18 | Playback Session Admission Limits | `d931e5fe`, `e4854cd9` | `feat/admin-overview-durable-jobs` |
 | 155 | 2026-06-18 | Playback decision reason public contract | `15da7f4b`, `b7960d67` | `feat/admin-overview-durable-jobs` |

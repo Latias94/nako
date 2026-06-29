@@ -386,3 +386,37 @@ Implemented size-only watch-folder stability fallback, added server regression c
 ### Next Steps
 
 - None - task complete
+
+
+## Session 158: Watch-folder scan admission diagnostics
+
+**Date**: 2026-06-29
+**Task**: Watch-folder scan admission diagnostics
+**Package**: nako
+**Branch**: `main`
+
+### Summary
+
+Added typed server runtime reasons for watch-folder scan admission decisions, expanded focused startup tests across admission/reuse/skip paths, updated server quality guidance, and archived the Trellis task. Verified cargo fmt --all, cargo nextest run -p nako-server watch_folder_runtime_tick --no-fail-fast, cargo check -p nako-server --tests, and git diff --check.
+
+### Main Changes
+
+(Add details)
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `d08ddebcbafacaf288a862dfe996ce550fc91191` | (see git log) |
+
+### Testing
+
+- [OK] (Add test results)
+
+### Status
+
+[OK] **Completed**
+
+### Next Steps
+
+- None - task complete
