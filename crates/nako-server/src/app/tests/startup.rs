@@ -289,6 +289,85 @@ impl StorageBackend for WatchFolderFailingDiscoveryBackend {
     }
 }
 
+struct WatchFolderMissingSizeBackend {
+    candidate_uri: StorageUri,
+}
+
+#[async_trait]
+impl StorageBackend for WatchFolderMissingSizeBackend {
+    fn scheme(&self) -> &'static str {
+        "local"
+    }
+
+    async fn stat(&self, uri: &StorageUri) -> Result<ObjectMetadata> {
+        if uri.as_str() == "local:///" {
+            return Ok(ObjectMetadata {
+                uri: uri.clone(),
+                kind: ObjectKind::Directory,
+                len: None,
+                modified_at: Some("1".to_owned()),
+                etag: None,
+                fingerprint: None,
+                capabilities: StorageCapabilities::WATCHABLE,
+                cache: None,
+            });
+        }
+
+        if uri == &self.candidate_uri {
+            return Ok(ObjectMetadata {
+                uri: uri.clone(),
+                kind: ObjectKind::File,
+                len: None,
+                modified_at: Some("2".to_owned()),
+                etag: None,
+                fingerprint: None,
+                capabilities: StorageCapabilities::WATCHABLE,
+                cache: None,
+            });
+        }
+
+        Err(NakoError::storage_io(
+            uri.to_string(),
+            "missing test object",
+        ))
+    }
+
+    async fn list(&self, uri: &StorageUri) -> Result<Vec<ObjectMetadata>> {
+        if uri.as_str() != "local:///" {
+            return Err(NakoError::storage_io(
+                uri.to_string(),
+                "missing test object",
+            ));
+        }
+
+        Ok(vec![ObjectMetadata {
+            uri: self.candidate_uri.clone(),
+            kind: ObjectKind::File,
+            len: None,
+            modified_at: Some("2".to_owned()),
+            etag: None,
+            fingerprint: None,
+            capabilities: StorageCapabilities::WATCHABLE,
+            cache: None,
+        }])
+    }
+
+    async fn open_range(&self, uri: &StorageUri, range: Option<ByteRange>) -> Result<VirtualFile> {
+        let _ = (uri, range);
+        Err(NakoError::Unsupported("test backend does not open ranges"))
+    }
+
+    async fn read_to_string(&self, uri: &StorageUri) -> Result<String> {
+        let _ = uri;
+        Err(NakoError::Unsupported("test backend is read-only"))
+    }
+
+    async fn write_string(&self, uri: &StorageUri, content: &str) -> Result<()> {
+        let _ = (uri, content);
+        Err(NakoError::Unsupported("test backend is read-only"))
+    }
+}
+
 #[tokio::test]
 async fn app_runtime_resource_class_diagnostics_reflect_configured_budgets() {
     let temp = tempfile::tempdir().unwrap();
@@ -3237,6 +3316,184 @@ async fn watch_folder_runtime_tick_enqueues_library_scan_after_second_stable_obs
         .filter(|job| job.kind == JobKind::LibraryScan)
         .count();
     assert_eq!(scan_jobs, 1);
+}
+
+#[tokio::test]
+async fn watch_folder_runtime_tick_does_not_reenqueue_after_stable_candidate_scan_completes() {
+    let temp = tempfile::tempdir().unwrap();
+    let library_id = LibraryId::new();
+    let library = LocalLibraryConfig {
+        id: library_id,
+        name: "Movies".to_owned(),
+        root: temp.path().join("movies"),
+        preset: nako_core::LibraryPreset::Movies,
+        webdav: None,
+    };
+    fs::create_dir_all(&library.root).unwrap();
+    fs::write(library.root.join("Ready Movie.mkv"), b"ready").unwrap();
+
+    let store = NakoDatabase::connect_in_memory().await.unwrap();
+    let config = startup_config(temp.path(), vec![library]);
+    let app = NakoApp::new_with_store(config, store.clone())
+        .await
+        .unwrap();
+
+    let mut persisted = store.get_library(library_id).await.unwrap().unwrap();
+    persisted.options.scan.realtime_monitor = true;
+    store.upsert_library(&persisted).await.unwrap();
+
+    let first = app
+        .watch_folder_runtime()
+        .tick_library(library_id)
+        .await
+        .unwrap();
+    let admitted = app
+        .watch_folder_runtime()
+        .tick_library(library_id)
+        .await
+        .unwrap();
+    let scan_job_id = admitted
+        .scan_job_id
+        .expect("expected stable candidate to admit a library scan");
+
+    assert_eq!(first.intake_plan.summary.newly_ready_candidates, 0);
+    assert_eq!(
+        first.scan_admission_status,
+        WatchFolderScanAdmissionStatus::NotAdmitted
+    );
+    assert_eq!(admitted.intake_plan.summary.newly_ready_candidates, 1);
+    assert_eq!(
+        admitted.scan_admission_status,
+        WatchFolderScanAdmissionStatus::Enqueued
+    );
+
+    store.start_job(scan_job_id).await.unwrap();
+    store
+        .succeed_job(scan_job_id, Some(r#"{"scan":"complete"}"#.to_owned()))
+        .await
+        .unwrap();
+
+    let repeated = app
+        .watch_folder_runtime()
+        .tick_library(library_id)
+        .await
+        .unwrap();
+
+    assert!(repeated.monitored);
+    assert_eq!(repeated.intake_plan.discover.ready_candidates, 1);
+    assert_eq!(repeated.intake_plan.summary.newly_ready_candidates, 0);
+    assert_eq!(
+        repeated.intake_plan.enqueue.reason,
+        WatchFolderIntakeEnqueueReason::NoNewStableCandidates
+    );
+    assert_eq!(
+        repeated.scan_admission_status,
+        WatchFolderScanAdmissionStatus::NotAdmitted
+    );
+    assert_eq!(repeated.scan_job_id, None);
+    assert!(!repeated.reused_existing_scan);
+    assert_eq!(repeated.status, WatchFolderRuntimeOutcomeStatus::Idle);
+    assert!(!repeated.intake_plan.summary.enqueue_scan);
+
+    let scan_jobs = store
+        .list_jobs(Default::default(), PageRequest::first_page())
+        .await
+        .unwrap()
+        .into_iter()
+        .filter(|job| job.kind == JobKind::LibraryScan)
+        .collect::<Vec<_>>();
+    assert_eq!(scan_jobs.len(), 1);
+    assert_eq!(scan_jobs[0].id, scan_job_id);
+    assert_eq!(scan_jobs[0].status, JobStatus::Succeeded);
+
+    let body = serde_json::to_string(&repeated.intake_plan).unwrap();
+    assert!(!body.contains(&temp.path().display().to_string()));
+    assert!(!body.contains("Ready Movie"));
+    assert!(!body.contains("local:///"));
+}
+
+#[tokio::test]
+async fn watch_folder_runtime_tick_does_not_admit_scan_for_repeated_missing_size_evidence() {
+    let temp = tempfile::tempdir().unwrap();
+    let library_id = LibraryId::new();
+    let library = LocalLibraryConfig {
+        id: library_id,
+        name: "Movies".to_owned(),
+        root: temp.path().join("movies"),
+        preset: nako_core::LibraryPreset::Movies,
+        webdav: None,
+    };
+    fs::create_dir_all(&library.root).unwrap();
+
+    let store = NakoDatabase::connect_in_memory().await.unwrap();
+    let config = startup_config(temp.path(), vec![library.clone()]);
+    let app = NakoApp::new_with_store(config, store.clone())
+        .await
+        .unwrap();
+
+    let mut persisted = store.get_library(library_id).await.unwrap().unwrap();
+    persisted.options.scan.realtime_monitor = true;
+    store.upsert_library(&persisted).await.unwrap();
+    app.storage()
+        .replace_backend_for_test(
+            library,
+            Arc::new(WatchFolderMissingSizeBackend {
+                candidate_uri: StorageUri::from_parts("local", "Secret Folder/Copying Movie.mkv")
+                    .unwrap(),
+            }),
+        )
+        .await;
+
+    let first = app
+        .watch_folder_runtime()
+        .tick_library(library_id)
+        .await
+        .unwrap();
+    let repeated = app
+        .watch_folder_runtime()
+        .tick_library(library_id)
+        .await
+        .unwrap();
+
+    for diagnostic in [&first, &repeated] {
+        assert!(diagnostic.monitored);
+        assert_eq!(diagnostic.intake_plan.discover.inspecting_candidates, 1);
+        assert_eq!(diagnostic.intake_plan.discover.ready_candidates, 0);
+        assert_eq!(diagnostic.intake_plan.summary.newly_ready_candidates, 0);
+        assert_eq!(
+            diagnostic.intake_plan.enqueue.reason,
+            WatchFolderIntakeEnqueueReason::WaitingForStability
+        );
+        assert_eq!(
+            diagnostic.scan_admission_status,
+            WatchFolderScanAdmissionStatus::NotAdmitted
+        );
+        assert_eq!(diagnostic.scan_job_id, None);
+        assert!(!diagnostic.reused_existing_scan);
+        assert_eq!(diagnostic.status, WatchFolderRuntimeOutcomeStatus::Idle);
+        assert!(!diagnostic.intake_plan.summary.enqueue_scan);
+    }
+
+    let latest_ticks = app.watch_folder_runtime().latest_tick_diagnostics().await;
+    let latest = latest_ticks
+        .get(&library_id)
+        .expect("expected shared latest tick diagnostic");
+    assert_eq!(latest, &repeated);
+
+    let scan_jobs = store
+        .list_jobs(Default::default(), PageRequest::first_page())
+        .await
+        .unwrap()
+        .into_iter()
+        .filter(|job| job.kind == JobKind::LibraryScan)
+        .count();
+    assert_eq!(scan_jobs, 0);
+
+    let body = serde_json::to_string(&repeated.intake_plan).unwrap();
+    assert!(!body.contains(&temp.path().display().to_string()));
+    assert!(!body.contains("Secret Folder"));
+    assert!(!body.contains("Copying Movie"));
+    assert!(!body.contains("local:///"));
 }
 
 #[tokio::test]
