@@ -3235,6 +3235,10 @@ async fn watch_folder_runtime_tick_enqueues_library_scan_after_second_stable_obs
         first.scan_admission_status,
         WatchFolderScanAdmissionStatus::NotAdmitted
     );
+    assert_eq!(
+        first.scan_admission_reason,
+        WatchFolderScanAdmissionReason::InspectingCandidates
+    );
     assert_eq!(first.scan_job_id, None);
     assert!(!first.reused_existing_scan);
     assert_eq!(first.intake_plan.discover.inspecting_candidates, 1);
@@ -3257,6 +3261,10 @@ async fn watch_folder_runtime_tick_enqueues_library_scan_after_second_stable_obs
         second.scan_admission_status,
         WatchFolderScanAdmissionStatus::Enqueued
     );
+    assert_eq!(
+        second.scan_admission_reason,
+        WatchFolderScanAdmissionReason::NewStableCandidatesAdmitted
+    );
     let Some(job_id) = second.scan_job_id else {
         panic!("expected watch-folder runtime to enqueue a library scan job");
     };
@@ -3272,6 +3280,7 @@ async fn watch_folder_runtime_tick_enqueues_library_scan_after_second_stable_obs
         .get(&library_id)
         .expect("expected shared latest tick diagnostic");
     assert_eq!(latest.scan_admission_status, second.scan_admission_status);
+    assert_eq!(latest.scan_admission_reason, second.scan_admission_reason);
     assert_eq!(latest.scan_job_id, second.scan_job_id);
     assert_eq!(latest.status, second.status);
     assert_eq!(
@@ -3297,6 +3306,10 @@ async fn watch_folder_runtime_tick_enqueues_library_scan_after_second_stable_obs
     assert_eq!(
         third.scan_admission_status,
         WatchFolderScanAdmissionStatus::NotAdmitted
+    );
+    assert_eq!(
+        third.scan_admission_reason,
+        WatchFolderScanAdmissionReason::AlreadyReadyCandidates
     );
     assert_eq!(third.scan_job_id, None);
     assert!(!third.reused_existing_scan);
@@ -3361,10 +3374,18 @@ async fn watch_folder_runtime_tick_does_not_reenqueue_after_stable_candidate_sca
         first.scan_admission_status,
         WatchFolderScanAdmissionStatus::NotAdmitted
     );
+    assert_eq!(
+        first.scan_admission_reason,
+        WatchFolderScanAdmissionReason::InspectingCandidates
+    );
     assert_eq!(admitted.intake_plan.summary.newly_ready_candidates, 1);
     assert_eq!(
         admitted.scan_admission_status,
         WatchFolderScanAdmissionStatus::Enqueued
+    );
+    assert_eq!(
+        admitted.scan_admission_reason,
+        WatchFolderScanAdmissionReason::NewStableCandidatesAdmitted
     );
 
     store.start_job(scan_job_id).await.unwrap();
@@ -3389,6 +3410,10 @@ async fn watch_folder_runtime_tick_does_not_reenqueue_after_stable_candidate_sca
     assert_eq!(
         repeated.scan_admission_status,
         WatchFolderScanAdmissionStatus::NotAdmitted
+    );
+    assert_eq!(
+        repeated.scan_admission_reason,
+        WatchFolderScanAdmissionReason::AlreadyReadyCandidates
     );
     assert_eq!(repeated.scan_job_id, None);
     assert!(!repeated.reused_existing_scan);
@@ -3468,6 +3493,10 @@ async fn watch_folder_runtime_tick_does_not_admit_scan_for_repeated_missing_size
             diagnostic.scan_admission_status,
             WatchFolderScanAdmissionStatus::NotAdmitted
         );
+        assert_eq!(
+            diagnostic.scan_admission_reason,
+            WatchFolderScanAdmissionReason::InspectingCandidates
+        );
         assert_eq!(diagnostic.scan_job_id, None);
         assert!(!diagnostic.reused_existing_scan);
         assert_eq!(diagnostic.status, WatchFolderRuntimeOutcomeStatus::Idle);
@@ -3532,6 +3561,10 @@ async fn watch_folder_runtime_tick_resumes_inspecting_candidate_after_restart() 
         WatchFolderScanAdmissionStatus::NotAdmitted
     );
     assert_eq!(
+        first.scan_admission_reason,
+        WatchFolderScanAdmissionReason::InspectingCandidates
+    );
+    assert_eq!(
         first.intake_plan.enqueue.reason,
         WatchFolderIntakeEnqueueReason::WaitingForStability
     );
@@ -3562,6 +3595,10 @@ async fn watch_folder_runtime_tick_resumes_inspecting_candidate_after_restart() 
     assert_eq!(
         second.scan_admission_status,
         WatchFolderScanAdmissionStatus::Enqueued
+    );
+    assert_eq!(
+        second.scan_admission_reason,
+        WatchFolderScanAdmissionReason::NewStableCandidatesAdmitted
     );
     assert!(!second.reused_existing_scan);
     assert!(second.intake_plan.summary.enqueue_scan);
@@ -3642,6 +3679,10 @@ async fn watch_folder_runtime_tick_reports_discovery_failures_and_uses_backoff_w
         diagnostic.scan_admission_status,
         WatchFolderScanAdmissionStatus::NotAdmitted
     );
+    assert_eq!(
+        diagnostic.scan_admission_reason,
+        WatchFolderScanAdmissionReason::DiscoveryFailures
+    );
     assert_eq!(diagnostic.scan_job_id, None);
     assert!(!diagnostic.reused_existing_scan);
     assert!(diagnostic.backoff_required);
@@ -3666,6 +3707,68 @@ async fn watch_folder_runtime_tick_reports_discovery_failures_and_uses_backoff_w
     assert!(!body.contains("Leaked Movie"));
     assert!(!body.contains("local:///"));
     assert!(!body.contains("token=secret"));
+}
+
+#[tokio::test]
+async fn watch_folder_runtime_tick_reports_blocked_candidates_without_enqueue() {
+    let temp = tempfile::tempdir().unwrap();
+    let library_id = LibraryId::new();
+    let library = LocalLibraryConfig {
+        id: library_id,
+        name: "Movies".to_owned(),
+        root: temp.path().join("movies"),
+        preset: nako_core::LibraryPreset::Movies,
+        webdav: None,
+    };
+    fs::create_dir_all(&library.root).unwrap();
+    fs::write(library.root.join("Not Media.txt"), b"blocked").unwrap();
+
+    let store = NakoDatabase::connect_in_memory().await.unwrap();
+    let config = startup_config(temp.path(), vec![library]);
+    let app = NakoApp::new_with_store(config, store.clone())
+        .await
+        .unwrap();
+
+    let mut persisted = store.get_library(library_id).await.unwrap().unwrap();
+    persisted.options.scan.realtime_monitor = true;
+    store.upsert_library(&persisted).await.unwrap();
+
+    let diagnostic = app
+        .watch_folder_runtime()
+        .tick_library(library_id)
+        .await
+        .unwrap();
+    let jobs = store
+        .list_jobs(Default::default(), PageRequest::first_page())
+        .await
+        .unwrap();
+
+    assert!(diagnostic.monitored);
+    assert_eq!(diagnostic.intake_plan.discover.blocked_candidates, 1);
+    assert_eq!(diagnostic.intake_plan.summary.blocked_candidates, 1);
+    assert_eq!(diagnostic.intake_plan.summary.newly_ready_candidates, 0);
+    assert_eq!(
+        diagnostic.intake_plan.enqueue.reason,
+        WatchFolderIntakeEnqueueReason::BlockedCandidates
+    );
+    assert_eq!(diagnostic.status, WatchFolderRuntimeOutcomeStatus::Blocked);
+    assert!(!diagnostic.intake_plan.summary.enqueue_scan);
+    assert_eq!(
+        diagnostic.scan_admission_status,
+        WatchFolderScanAdmissionStatus::NotAdmitted
+    );
+    assert_eq!(
+        diagnostic.scan_admission_reason,
+        WatchFolderScanAdmissionReason::BlockedCandidates
+    );
+    assert_eq!(diagnostic.scan_job_id, None);
+    assert!(!diagnostic.reused_existing_scan);
+    assert!(jobs.iter().all(|job| job.kind != JobKind::LibraryScan));
+
+    let body = serde_json::to_string(&diagnostic.intake_plan).unwrap();
+    assert!(!body.contains(&temp.path().display().to_string()));
+    assert!(!body.contains("Not Media"));
+    assert!(!body.contains("local:///"));
 }
 
 #[tokio::test]
@@ -3703,6 +3806,10 @@ async fn watch_folder_runtime_tick_reuses_existing_incomplete_scan_for_new_ready
         first.scan_admission_status,
         WatchFolderScanAdmissionStatus::NotAdmitted
     );
+    assert_eq!(
+        first.scan_admission_reason,
+        WatchFolderScanAdmissionReason::InspectingCandidates
+    );
     assert_eq!(first.scan_job_id, None);
 
     let existing = store
@@ -3735,6 +3842,10 @@ async fn watch_folder_runtime_tick_reuses_existing_incomplete_scan_for_new_ready
     assert_eq!(
         second.scan_admission_status,
         WatchFolderScanAdmissionStatus::ReusedQueued
+    );
+    assert_eq!(
+        second.scan_admission_reason,
+        WatchFolderScanAdmissionReason::ExistingQueuedScanReused
     );
     assert_eq!(second.scan_job_id, Some(existing.id));
     assert!(second.reused_existing_scan);
@@ -3781,6 +3892,10 @@ async fn watch_folder_runtime_tick_reuses_existing_running_scan_for_new_ready_ca
     assert_eq!(
         first.scan_admission_status,
         WatchFolderScanAdmissionStatus::NotAdmitted
+    );
+    assert_eq!(
+        first.scan_admission_reason,
+        WatchFolderScanAdmissionReason::InspectingCandidates
     );
     assert_eq!(first.scan_job_id, None);
 
@@ -3833,6 +3948,10 @@ async fn watch_folder_runtime_tick_reuses_existing_running_scan_for_new_ready_ca
     assert_eq!(
         second.scan_admission_status,
         WatchFolderScanAdmissionStatus::ReusedRunning
+    );
+    assert_eq!(
+        second.scan_admission_reason,
+        WatchFolderScanAdmissionReason::ExistingRunningScanReused
     );
     assert_eq!(second.scan_job_id, Some(existing.id));
     assert!(second.reused_existing_scan);
@@ -3891,6 +4010,10 @@ async fn watch_folder_runtime_tick_waits_for_changed_observation_before_enqueuin
         first.scan_admission_status,
         WatchFolderScanAdmissionStatus::NotAdmitted
     );
+    assert_eq!(
+        first.scan_admission_reason,
+        WatchFolderScanAdmissionReason::InspectingCandidates
+    );
     assert_eq!(first.scan_job_id, None);
     assert!(!first.reused_existing_scan);
     assert!(changed.monitored);
@@ -3901,6 +4024,10 @@ async fn watch_folder_runtime_tick_waits_for_changed_observation_before_enqueuin
         changed.scan_admission_status,
         WatchFolderScanAdmissionStatus::NotAdmitted
     );
+    assert_eq!(
+        changed.scan_admission_reason,
+        WatchFolderScanAdmissionReason::InspectingCandidates
+    );
     assert_eq!(changed.scan_job_id, None);
     assert!(!changed.reused_existing_scan);
     assert!(stable.monitored);
@@ -3909,6 +4036,10 @@ async fn watch_folder_runtime_tick_waits_for_changed_observation_before_enqueuin
     assert_eq!(
         stable.scan_admission_status,
         WatchFolderScanAdmissionStatus::Enqueued
+    );
+    assert_eq!(
+        stable.scan_admission_reason,
+        WatchFolderScanAdmissionReason::NewStableCandidatesAdmitted
     );
     assert!(stable.scan_job_id.is_some());
     assert!(!stable.reused_existing_scan);
@@ -3986,6 +4117,10 @@ async fn watch_folder_runtime_tick_suppresses_planned_host_write_without_enqueui
         first.scan_admission_status,
         WatchFolderScanAdmissionStatus::NotAdmitted
     );
+    assert_eq!(
+        first.scan_admission_reason,
+        WatchFolderScanAdmissionReason::SuppressedCandidates
+    );
     assert_eq!(first.scan_job_id, None);
     assert!(!first.reused_existing_scan);
     assert_eq!(first.intake_plan.suppression.suppressed_candidates, 1);
@@ -4005,6 +4140,10 @@ async fn watch_folder_runtime_tick_suppresses_planned_host_write_without_enqueui
     assert_eq!(
         second.scan_admission_status,
         WatchFolderScanAdmissionStatus::NotAdmitted
+    );
+    assert_eq!(
+        second.scan_admission_reason,
+        WatchFolderScanAdmissionReason::SuppressedCandidates
     );
     assert_eq!(second.scan_job_id, None);
     assert!(!second.reused_existing_scan);
@@ -4077,6 +4216,10 @@ async fn watch_folder_runtime_tick_reconciles_completed_suppression_before_scan_
         suppressed.scan_admission_status,
         WatchFolderScanAdmissionStatus::NotAdmitted
     );
+    assert_eq!(
+        suppressed.scan_admission_reason,
+        WatchFolderScanAdmissionReason::SuppressedCandidates
+    );
     assert_eq!(suppressed.scan_job_id, None);
     assert!(!suppressed.reused_existing_scan);
     assert_eq!(suppressed.intake_plan.suppression.suppressed_candidates, 1);
@@ -4131,6 +4274,10 @@ async fn watch_folder_runtime_tick_reconciles_completed_suppression_before_scan_
         inspecting.scan_admission_status,
         WatchFolderScanAdmissionStatus::NotAdmitted
     );
+    assert_eq!(
+        inspecting.scan_admission_reason,
+        WatchFolderScanAdmissionReason::InspectingCandidates
+    );
     assert_eq!(inspecting.scan_job_id, None);
     assert!(!inspecting.reused_existing_scan);
     assert_eq!(
@@ -4157,6 +4304,17 @@ async fn watch_folder_runtime_tick_reconciles_completed_suppression_before_scan_
         WatchFolderScanAdmissionStatus::ReusedQueued
             | WatchFolderScanAdmissionStatus::ReusedRunning
     ));
+    match admitted.scan_admission_status {
+        WatchFolderScanAdmissionStatus::ReusedQueued => assert_eq!(
+            admitted.scan_admission_reason,
+            WatchFolderScanAdmissionReason::ExistingQueuedScanReused
+        ),
+        WatchFolderScanAdmissionStatus::ReusedRunning => assert_eq!(
+            admitted.scan_admission_reason,
+            WatchFolderScanAdmissionReason::ExistingRunningScanReused
+        ),
+        _ => unreachable!("admitted suppression reconciliation should reuse an incomplete scan"),
+    }
     assert_eq!(admitted.scan_job_id, Some(admission.job_id()));
     assert!(admitted.reused_existing_scan);
     assert_eq!(

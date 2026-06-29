@@ -1,0 +1,7 @@
+{"_example": "Fill with {\"file\": \"<path>\", \"reason\": \"<why>\"}. Put spec/research files only — no code paths. Run `python3 .trellis/scripts/get_context.py --mode packages` to list available specs. Delete this line once real entries are added."}
+{"file": ".trellis/spec/nako-server/backend/index.md", "reason": "Watch-folder runtime, scan admission, Admin readiness tests"}
+{"file": ".trellis/spec/nako-api/backend/index.md", "reason": "Admin DTO/contract rules if evidence is exposed through API"}
+{"file": ".trellis/spec/admin-web/frontend/index.md", "reason": "Admin Web context only if readiness UI needs new evidence"}
+{"file": "docs/architecture/LIBRARY_PIPELINE.md", "reason": "M2 watcher/intake architecture authority"}
+{"file": "docs/architecture/CONTROL_PLANE.md", "reason": "Runtime supervisor and durable job boundary"}
+{"file": "docs/ROADMAP.md", "reason": "M2 large-library reliability target"}

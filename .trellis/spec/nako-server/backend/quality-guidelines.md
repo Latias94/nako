@@ -77,6 +77,12 @@ Use these gates for `crates/nako-server` feature work.
 - Watch-folder intake tests must prove size-only stability fallback, missing
   size evidence staying `Inspecting`, and changed size resetting the candidate
   before scan admission treats it as ready.
+- Watch-folder runtime scan-admission diagnostics must remain a projection of
+  `WatchFolderIntakePlan` plus the `LibraryScanAppService` admission outcome.
+  Tests that change the runtime tick path should assert the intake enqueue
+  reason, scan admission status, derived admission reason, job reuse facts, and
+  redaction for admitted, reused, already-ready, inspecting, discovery-failure,
+  suppressed, and blocked paths.
 - Admin operator readiness changes for Storage must include unresolved VFS cache
   repair pressure. Healthy/no-action repair diagnostics must not degrade
   readiness, but any current unresolved repair target with retryable refresh

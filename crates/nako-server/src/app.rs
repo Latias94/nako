@@ -149,7 +149,7 @@ pub(crate) use watch_folder_runtime::{
     WatchFolderRuntimeAppService, WatchFolderRuntimeCoverageDiagnostic,
     WatchFolderRuntimeCoverageReport, WatchFolderRuntimeCoverageStatus,
     WatchFolderRuntimeOutcomeStatus, WatchFolderRuntimeTickDiagnostic,
-    WatchFolderScanAdmissionStatus,
+    WatchFolderScanAdmissionReason, WatchFolderScanAdmissionStatus,
 };
 pub(crate) use watch_folder_suppression::{
     BeginPlannedWatchFolderWriteSuppressionRequest,

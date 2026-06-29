@@ -39,6 +39,7 @@ pub(crate) struct WatchFolderRuntimeTickDiagnostic {
     pub(crate) intake_plan: WatchFolderIntakePlan,
     pub(crate) discovery_failures: Vec<WatchFolderRuntimeFailureDiagnostic>,
     pub(crate) scan_admission_status: WatchFolderScanAdmissionStatus,
+    pub(crate) scan_admission_reason: WatchFolderScanAdmissionReason,
     pub(crate) scan_job_id: Option<JobId>,
     pub(crate) reused_existing_scan: bool,
     pub(crate) backoff_required: bool,
@@ -67,6 +68,19 @@ pub(crate) enum WatchFolderScanAdmissionStatus {
     Enqueued,
     ReusedQueued,
     ReusedRunning,
+}
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub(crate) enum WatchFolderScanAdmissionReason {
+    NewStableCandidatesAdmitted,
+    ExistingQueuedScanReused,
+    ExistingRunningScanReused,
+    InspectingCandidates,
+    AlreadyReadyCandidates,
+    SuppressedCandidates,
+    BlockedCandidates,
+    DiscoveryFailures,
+    NoCandidates,
 }
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
@@ -264,6 +278,8 @@ impl WatchFolderRuntimeAppService {
             } else {
                 (WatchFolderScanAdmissionStatus::NotAdmitted, None, false)
             };
+        let scan_admission_reason =
+            watch_folder_scan_admission_reason(&intake_plan, scan_admission_status);
 
         let diagnostic = WatchFolderRuntimeTickDiagnostic {
             library_id,
@@ -272,6 +288,7 @@ impl WatchFolderRuntimeAppService {
             intake_plan,
             discovery_failures,
             scan_admission_status,
+            scan_admission_reason,
             scan_job_id,
             reused_existing_scan,
             backoff_required,
@@ -316,6 +333,7 @@ impl WatchFolderRuntimeTickDiagnostic {
             intake_plan: WatchFolderIntakePlan::idle(),
             discovery_failures: Vec::new(),
             scan_admission_status: WatchFolderScanAdmissionStatus::NotAdmitted,
+            scan_admission_reason: WatchFolderScanAdmissionReason::NoCandidates,
             scan_job_id: None,
             reused_existing_scan: false,
             backoff_required: false,
@@ -342,6 +360,48 @@ impl From<&super::jobs::LibraryScanAdmissionOutcome> for WatchFolderScanAdmissio
                 }
             },
         }
+    }
+}
+
+pub(crate) fn watch_folder_scan_admission_reason(
+    intake_plan: &WatchFolderIntakePlan,
+    scan_admission_status: WatchFolderScanAdmissionStatus,
+) -> WatchFolderScanAdmissionReason {
+    match scan_admission_status {
+        WatchFolderScanAdmissionStatus::Enqueued => {
+            WatchFolderScanAdmissionReason::NewStableCandidatesAdmitted
+        }
+        WatchFolderScanAdmissionStatus::ReusedQueued => {
+            WatchFolderScanAdmissionReason::ExistingQueuedScanReused
+        }
+        WatchFolderScanAdmissionStatus::ReusedRunning => {
+            WatchFolderScanAdmissionReason::ExistingRunningScanReused
+        }
+        WatchFolderScanAdmissionStatus::NotAdmitted => match intake_plan.enqueue.reason {
+            nako_library::WatchFolderIntakeEnqueueReason::DiscoveryFailures => {
+                WatchFolderScanAdmissionReason::DiscoveryFailures
+            }
+            nako_library::WatchFolderIntakeEnqueueReason::BlockedCandidates => {
+                WatchFolderScanAdmissionReason::BlockedCandidates
+            }
+            nako_library::WatchFolderIntakeEnqueueReason::SuppressedCandidates => {
+                WatchFolderScanAdmissionReason::SuppressedCandidates
+            }
+            nako_library::WatchFolderIntakeEnqueueReason::WaitingForStability => {
+                WatchFolderScanAdmissionReason::InspectingCandidates
+            }
+            nako_library::WatchFolderIntakeEnqueueReason::NoNewStableCandidates
+                if intake_plan.discover.ready_candidates > 0 =>
+            {
+                WatchFolderScanAdmissionReason::AlreadyReadyCandidates
+            }
+            nako_library::WatchFolderIntakeEnqueueReason::NoNewStableCandidates => {
+                WatchFolderScanAdmissionReason::NoCandidates
+            }
+            nako_library::WatchFolderIntakeEnqueueReason::NewStableCandidates => {
+                WatchFolderScanAdmissionReason::InspectingCandidates
+            }
+        },
     }
 }
 
