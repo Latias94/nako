@@ -1,8 +1,0 @@
-{"file": "docs/deployment/M1_LADDER_EVIDENCE_MATRIX.md", "reason": "Check that completed ladder evidence is linked and not reopened."}
-{"file": "docs/architecture/M1_ADMIN_DIAGNOSTICS_REPAIR_COVERAGE.md", "reason": "Check audit matrix scope, classifications, risks, and follow-on routing."}
-{"file": "docs/ROADMAP.md", "reason": "Check current M1 queue and completed evidence alignment."}
-{"file": "docs/GOALS.md", "reason": "Check goal-map post-matrix queue state."}
-{"file": "docs/architecture/LANES.md", "reason": "Check lane routing after the audit."}
-{"file": ".trellis/spec/nako-api/backend/admin-and-public-contracts.md", "reason": "Check Admin diagnostics/redaction guidance remains respected."}
-{"file": ".trellis/spec/nako-server/backend/source-fingerprint-hash-policy.md", "reason": "Check source hash and duplicate repair boundaries remain accurately classified."}
-{"file": ".trellis/spec/admin-web/frontend/routes-forms-and-tests.md", "reason": "Check Admin Web follow-on routing uses established feature-adapter and route patterns."}

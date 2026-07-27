@@ -1,5 +1,0 @@
-{"file":".trellis/spec/nako-playback/backend/quality-guidelines.md","reason":"Verify profile resolution preserves planner purity and capability semantics."}
-{"file":".trellis/spec/nako-client-protocol/backend/index.md","reason":"Verify no unintended Public Client wire-shape change."}
-{"file":".trellis/spec/nako-api/backend/admin-and-public-contracts.md","reason":"Verify OpenAPI/SDK artifacts remain stable unless intentionally changed."}
-{"file":".trellis/spec/nako-server/backend/http-api-patterns.md","reason":"Verify HTTP query/body conversion and route tests follow server conventions."}
-{"file":".trellis/spec/guides/cross-layer-thinking-guide.md","reason":"Verify cross-layer profile identity and override behavior stays consistent."}

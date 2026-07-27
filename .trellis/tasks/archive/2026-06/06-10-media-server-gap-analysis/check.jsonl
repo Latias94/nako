@@ -1,7 +1,0 @@
-{"file": ".trellis/tasks/06-10-media-server-gap-analysis/prd.md", "reason": "Acceptance criteria and definition of done for verification."}
-{"file": ".trellis/tasks/06-10-media-server-gap-analysis/research/adr-spec-constraints.md", "reason": "ADR and spec constraints to verify against."}
-{"file": ".trellis/tasks/06-10-media-server-gap-analysis/research/nako-current-state.md", "reason": "Current-state gap map used to check implementation coverage."}
-{"file": ".trellis/tasks/06-10-media-server-gap-analysis/research/product-benchmark.md", "reason": "Product benchmark evidence for readiness workflow expectations."}
-{"file": ".trellis/spec/nako-api/backend/index.md", "reason": "API DTO and generated contract quality checklist."}
-{"file": ".trellis/spec/nako-server/backend/index.md", "reason": "Server route and diagnostics quality checklist."}
-{"file": ".trellis/spec/admin-web/frontend/index.md", "reason": "Admin Web rendering and test quality checklist."}

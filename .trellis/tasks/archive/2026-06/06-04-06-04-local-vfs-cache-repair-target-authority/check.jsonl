@@ -1,9 +1,0 @@
-{"file": ".trellis/tasks/06-04-06-04-local-vfs-cache-repair-target-authority/research/target-authority-options.md", "reason": "Verify implementation matches chosen scope and rejected alternatives"}
-{"file": ".trellis/spec/nako-vfs/backend/database-guidelines.md", "reason": "Check VFS durable fact ownership and redaction"}
-{"file": ".trellis/spec/nako-vfs/backend/error-handling.md", "reason": "Check cache repair error classification and safe messages"}
-{"file": ".trellis/spec/nako-vfs/backend/quality-guidelines.md", "reason": "Check cache repair action and URI/path authority tests"}
-{"file": ".trellis/spec/nako-server/backend/database-guidelines.md", "reason": "Check server repository consumption and cross-layer field flow"}
-{"file": ".trellis/spec/nako-server/backend/error-handling.md", "reason": "Check HTTP/public error redaction when authority mismatch occurs"}
-{"file": ".trellis/spec/nako-server/backend/quality-guidelines.md", "reason": "Check server test and gate expectations"}
-{"file": ".trellis/spec/nako-db/backend/database-guidelines.md", "reason": "Check migrations, row mapping, and contract tests"}
-{"file": ".trellis/spec/nako-db/backend/quality-guidelines.md", "reason": "Check database verification gates"}

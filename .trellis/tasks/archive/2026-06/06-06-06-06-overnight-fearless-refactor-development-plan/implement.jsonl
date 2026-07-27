@@ -1,7 +1,0 @@
-{"file": ".trellis/spec/nako-vfs/backend/index.md", "reason": "Storage/VFS refactor candidates and any OpenDAL adapter spike must follow the VFS backend guidelines."}
-{"file": ".trellis/spec/nako-server/backend/index.md", "reason": "M2 reliability slices may touch runtime composition, Admin diagnostics, storage services, and durable job orchestration."}
-{"file": ".trellis/spec/nako-library/backend/index.md", "reason": "Library watcher, intake stability, source fingerprint scheduling, and scan-originated reliability work live in the library layer."}
-{"file": ".trellis/spec/nako-db/backend/index.md", "reason": "Durable queues, PostgreSQL runtime harnesses, and storage/source identity parity may require repository and persistence guidance."}
-{"file": ".trellis/spec/nako-api/backend/index.md", "reason": "Any Admin diagnostics or repair DTO change must preserve redaction-safe API contracts."}
-{"file": ".trellis/spec/admin-web/frontend/index.md", "reason": "Admin repair or diagnostics reachability gaps may require Admin Web route/data-source changes."}
-{"file": ".trellis/tasks/06-06-06-06-overnight-fearless-refactor-development-plan/research/opendal-storage-layer.md", "reason": "Records the OpenDAL storage-layer evaluation and recommended adapter-spike decision."}

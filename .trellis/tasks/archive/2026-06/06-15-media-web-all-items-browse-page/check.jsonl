@@ -1,5 +1,0 @@
-{"file": ".trellis/spec/admin-web/frontend/index.md", "reason": "Admin Web frontend quality gate for route/page/test changes."}
-{"file": ".trellis/spec/admin-web/frontend/routes-forms-and-tests.md", "reason": "Review against Media Web route, pagination, and redaction expectations."}
-{"file": ".trellis/spec/guides/index.md", "reason": "Shared review checklist index."}
-{"file": ".trellis/spec/guides/code-reuse-thinking-guide.md", "reason": "Check that the implementation reuses existing Media item grid/pager patterns."}
-{"file": ".trellis/spec/guides/cross-layer-thinking-guide.md", "reason": "Check that no unnecessary backend/API contract boundary was introduced."}

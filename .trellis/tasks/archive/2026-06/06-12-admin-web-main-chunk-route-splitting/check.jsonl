@@ -1,5 +1,0 @@
-{"_example": "Fill with {\"file\": \"<path>\", \"reason\": \"<why>\"}. Put spec/research files only — no code paths. Run `python3 .trellis/scripts/get_context.py --mode packages` to list available specs. Delete this line once real entries are added."}
-{"file": ".trellis/spec/admin-web/frontend/routes-forms-and-tests.md", "reason": "Verify route ownership, i18n, mock fallback, and tests remain aligned"}
-{"file": ".trellis/spec/guides/index.md", "reason": "Shared thinking guides for final verification"}
-{"file": ".trellis/tasks/06-12-admin-web-main-chunk-route-splitting/research/route-splitting-candidates.md", "reason": "Verify implementation addresses researched bundle candidates"}
-{"file": ".trellis/spec/admin-web/frontend/index.md", "reason": "Verify updated Admin Web bundle-splitting spec remains indexed"}

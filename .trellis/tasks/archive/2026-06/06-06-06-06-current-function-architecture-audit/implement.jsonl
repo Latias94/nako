@@ -1,7 +1,0 @@
-{"file": "docs/ROADMAP.md", "reason": "Current M1 queue and milestone ladder used as audit baseline"}
-{"file": "docs/architecture/LANES.md", "reason": "Lane routing and candidate next actions for Product-Operator M1"}
-{"file": "docs/architecture/CONTROL_PLANE.md", "reason": "Durable jobs, source hash triggering, diagnostics, and control-plane follow-ons"}
-{"file": "docs/architecture/LIBRARY_PIPELINE.md", "reason": "Scan, metadata, source duplicate, watcher, and operator repair context"}
-{"file": "docs/architecture/OPERATIONS_RELEASE.md", "reason": "Release gate, playback hardware report, and operator-readiness gaps"}
-{"file": ".trellis/spec/admin-web/frontend/routes-forms-and-tests.md", "reason": "Admin Web route/data-source test expectations for next operator flow"}
-{"file": ".trellis/spec/nako-server/backend/source-fingerprint-hash-policy.md", "reason": "Source hash and source duplicate reconciliation contracts"}

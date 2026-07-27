@@ -1,7 +1,0 @@
-{"file": ".trellis/spec/guides/index.md", "reason": "Shared guidance for cross-layer reliability slice planning."}
-{"file": ".trellis/spec/guides/code-reuse-thinking-guide.md", "reason": "Harness changes must reuse existing contract filters and script patterns instead of inventing broad commands."}
-{"file": ".trellis/spec/nako-db/backend/index.md", "reason": "nako-db owns PostgreSQL harness, adapter parity, and repository contract test guidance."}
-{"file": ".trellis/spec/nako-db/backend/quality-guidelines.md", "reason": "Contains the PostgreSQL contract harness suite selection contract this task extends."}
-{"file": ".trellis/spec/nako-db/backend/database-guidelines.md", "reason": "Confirms this task should avoid SQL/migration changes and preserve adapter boundaries."}
-{"file": ".trellis/spec/nako-core/backend/index.md", "reason": "Job repository traits and durable job domain types are owned by nako-core; task must not change them."}
-{"file": ".trellis/spec/nako-core/backend/quality-guidelines.md", "reason": "Cross-crate durable contract changes need focused tests; this task should remain command-surface only."}

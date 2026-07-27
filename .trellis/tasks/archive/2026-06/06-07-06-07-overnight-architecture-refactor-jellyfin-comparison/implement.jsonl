@@ -1,3 +1,0 @@
-{"_example": "Fill with {\"file\": \"<path>\", \"reason\": \"<why>\"}. Put spec/research files only — no code paths. Run `python3 .trellis/scripts/get_context.py --mode packages` to list available specs. Delete this line once real entries are added."}
-{"file": ".trellis/tasks/06-07-06-07-overnight-architecture-refactor-jellyfin-comparison/research/initial-campaign-state.md", "reason": "Initial overnight campaign state and comparison boundary"}
-{"file": ".trellis/spec/guides/index.md", "reason": "Shared thinking guide for cross-layer and reuse checks"}

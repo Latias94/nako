@@ -1,5 +1,0 @@
-{"file": ".trellis/spec/nako-db/backend/database-guidelines.md", "reason": "Verify migration and SQLite/PostgreSQL repository parity."}
-{"file": ".trellis/spec/nako-vfs/backend/database-guidelines.md", "reason": "Verify staging attribution authority and ambiguity handling."}
-{"file": ".trellis/spec/nako-server/backend/quality-guidelines.md", "reason": "Verify server tests and redaction-safe diagnostics."}
-{"file": ".trellis/spec/nako-api/backend/index.md", "reason": "Verify Admin API contract shape if changed."}
-{"file": ".trellis/spec/admin-web/frontend/index.md", "reason": "Verify generated Admin Web contract/mock updates if present."}

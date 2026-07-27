@@ -1,5 +1,0 @@
-{"file": "docs/architecture/LANES.md", "reason": "Review selected child lanes against architecture ownership and sequencing rules."}
-{"file": "docs/architecture/LIBRARY_PIPELINE.md", "reason": "Confirm watcher/debounce productization stays within documented library pipeline authority."}
-{"file": "docs/architecture/STORAGE_VFS.md", "reason": "Confirm staging attribution persistence stays within documented storage boundaries."}
-{"file": "docs/architecture/CONTROL_PLANE.md", "reason": "Confirm watcher runtime work keeps ADR 0053 supervision and budget boundaries intact."}
-{"file": ".trellis/tasks/archive/2026-06/06-03-05-next-architecture-parallel-wave/evidence.md", "reason": "Check that selected wave 06 builds on unresolved wave 05 follow-ons."}

@@ -1,4 +1,0 @@
-{"file": ".trellis/workflow.md", "reason": "Confirm docs do not contradict Trellis lifecycle authority."}
-{"file": "docs/architecture/LANES.md", "reason": "Check lane routing is still usable for parallel worktrees."}
-{"file": "docs/architecture/WORKSTREAM_LINKS.md", "reason": "Check links remain evidence-only and not active workflow commands."}
-{"file": "docs/workstreams/README.md", "reason": "Check migration notice and historical status wording."}

@@ -1,4 +1,0 @@
-{"file": ".trellis/spec/guides/cross-layer-thinking-guide.md", "reason": "Check roadmap, goals, and lane queue remain aligned after docs refresh."}
-{"file": ".trellis/spec/guides/code-reuse-thinking-guide.md", "reason": "Check completed task evidence is referenced rather than duplicated or reopened."}
-{"file": ".trellis/tasks/archive/2026-06/06-06-06-06-current-function-architecture-audit/prd.md", "reason": "Check the refreshed queue follows the ranked current architecture audit."}
-{"file": ".trellis/tasks/archive/2026-06/06-06-source-duplicate-reconciliation-operator-flow/prd.md", "reason": "Check completed source duplicate UI flow is no longer listed as candidate work."}

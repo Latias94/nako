@@ -1,4 +1,0 @@
-{"file": ".trellis/spec/nako-server/backend/directory-structure.md", "reason": "Server module placement and control-plane boundary"}
-{"file": ".trellis/spec/nako-server/backend/http-api-patterns.md", "reason": "Admin network diagnostics HTTP route patterns and redaction"}
-{"file": ".trellis/spec/nako-api/backend/admin-and-public-contracts.md", "reason": "Admin DTO contract and generated contract rules"}
-{"file": ".trellis/spec/nako-server/backend/quality-guidelines.md", "reason": "Server test gates and remote access readiness rules"}

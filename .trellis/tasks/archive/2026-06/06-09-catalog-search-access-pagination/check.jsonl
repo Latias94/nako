@@ -1,5 +1,0 @@
-{"file":".trellis/spec/nako-search/backend/index.md","reason":"Verify `nako-search` remains pure scoring without access/database coupling."}
-{"file":".trellis/spec/nako-db/backend/quality-guidelines.md","reason":"Check SQLite/PostgreSQL parity and focused contract tests."}
-{"file":".trellis/spec/nako-server/backend/quality-guidelines.md","reason":"Check focused `/search` route behavior."}
-{"file":".trellis/spec/guides/cross-layer-thinking-guide.md","reason":"Review database-to-search-to-server data flow after the refactor."}
-{"file":"docs/architecture/STATE_ACCESS.md","reason":"Confirm access filtering happens before public search pagination slots are consumed."}

@@ -1,8 +1,0 @@
-{"file": ".trellis/spec/guides/cross-layer-thinking-guide.md", "reason": "Apply crosses Admin DTO, HTTP route, app service, repository writes, and generated contract surfaces."}
-{"file": ".trellis/spec/guides/code-reuse-thinking-guide.md", "reason": "Reuse the existing read-only source duplicate reconciliation plan and duplicate relationship upsert semantics."}
-{"file": ".trellis/spec/nako-core/backend/index.md", "reason": "Shared Source Duplicate Relationship and reconciliation domain contracts."}
-{"file": ".trellis/spec/nako-api/backend/index.md", "reason": "Admin DTO and generated Admin contract route changes."}
-{"file": ".trellis/spec/nako-server/backend/index.md", "reason": "Admin route, app service, source hash reconciliation, and HTTP test patterns."}
-{"file": ".trellis/tasks/archive/2026-06/06-05-source-hash-triggering-reconciliation-policy/research/source-hash-triggering-reconciliation-policy.md", "reason": "Policy baseline: explicit plan/apply workflow, no automatic hash completion writer or source merge."}
-{"file": ".trellis/tasks/archive/2026-06/06-06-source-duplicate-reconciliation-plan-first-slice/prd.md", "reason": "Predecessor read-only reconciliation plan scope and boundaries."}
-{"file": ".trellis/tasks/archive/2026-06/06-06-admin-source-duplicate-reconciliation-plan-api/prd.md", "reason": "Predecessor Admin read-only plan route and DTO boundary."}

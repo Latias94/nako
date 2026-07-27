@@ -1,9 +1,0 @@
-{"file": "docs/architecture/STORAGE_VFS.md", "reason": "Verify staging attribution stays inside storage/VFS authority and redaction rules."}
-{"file": "docs/architecture/LIBRARY_PIPELINE.md", "reason": "Verify scan/intake consumers do not gain false attribution semantics."}
-{"file": "docs/architecture/CONTROL_PLANE.md", "reason": "Verify diagnostics and durable work stay within control-plane boundaries."}
-{"file": ".trellis/tasks/archive/2026-06/06-03-05a-staging-budget-per-backend-policy/evidence.md", "reason": "Verify scoped staging policy behavior is preserved."}
-{"file": ".trellis/spec/nako-db/backend/database-guidelines.md", "reason": "Verify schema/repository implementation follows DB rules."}
-{"file": ".trellis/spec/nako-db/backend/quality-guidelines.md", "reason": "Verify repository contracts and SQLite/PostgreSQL parity coverage."}
-{"file": ".trellis/spec/nako-vfs/backend/quality-guidelines.md", "reason": "Verify VFS staging and capability behavior stays redaction-safe."}
-{"file": ".trellis/spec/nako-server/backend/quality-guidelines.md", "reason": "Verify server diagnostics or scan-admission tests if touched."}
-{"file": ".trellis/spec/nako-library/backend/quality-guidelines.md", "reason": "Verify library scan/intake behavior remains bounded if touched."}

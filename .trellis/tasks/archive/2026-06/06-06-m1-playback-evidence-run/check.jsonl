@@ -1,6 +1,0 @@
-{"file": "docs/deployment/M1_LADDER_EVIDENCE_MATRIX.md", "reason": "Check playback mode command, coverage, and failure routing."}
-{"file": "docs/architecture/PLAYBACK.md", "reason": "Check playback/transcode owner lane and deferred work boundaries."}
-{"file": "docs/architecture/OPERATIONS_RELEASE.md", "reason": "Check release hardware report evidence expectations."}
-{"file": "docs/architecture/LANES.md", "reason": "Check lane routing for any playback blocker."}
-{"file": ".trellis/spec/nako-transcode/backend/index.md", "reason": "Check transcode package context if playback gate fails."}
-{"file": ".trellis/spec/nako-server/backend/quality-guidelines.md", "reason": "Check server self-host smoke gate expectations."}

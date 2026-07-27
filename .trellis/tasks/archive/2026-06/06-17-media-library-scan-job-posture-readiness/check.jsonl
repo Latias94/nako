@@ -1,6 +1,0 @@
-{"file":".trellis/spec/nako-server/backend/index.md","reason":"Verify server boundaries and ADR 0053 readiness behavior."}
-{"file":".trellis/spec/nako-server/backend/directory-structure.md","reason":"Check app-service/HTTP separation for readiness aggregation."}
-{"file":".trellis/spec/nako-server/backend/database-guidelines.md","reason":"Ensure no raw SQL/schema work leaks into server code."}
-{"file":".trellis/spec/nako-server/backend/quality-guidelines.md","reason":"Review focused tests and redaction coverage for operator readiness."}
-{"file":".trellis/spec/guides/cross-layer-thinking-guide.md","reason":"Check data flow from durable jobs to Admin readiness output."}
-{"file":".trellis/tasks/06-17-media-library-scan-job-posture-readiness/prd.md","reason":"Verify implementation against task requirements."}

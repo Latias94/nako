@@ -1,9 +1,0 @@
-{"file": ".trellis/spec/guides/index.md", "reason": "Verify the decision accounted for cross-layer and reuse thinking triggers."}
-{"file": ".trellis/spec/guides/code-reuse-thinking-guide.md", "reason": "Verify ADR preserves Nako-owned storage concepts instead of duplicating or replacing them."}
-{"file": ".trellis/spec/guides/cross-layer-thinking-guide.md", "reason": "Verify the decision maps implications across VFS, server, cache repair, scan, probe, playback, and Admin boundaries."}
-{"file": ".trellis/spec/nako-vfs/backend/index.md", "reason": "Verify the decision stays inside the nako-vfs adapter boundary."}
-{"file": ".trellis/spec/nako-vfs/backend/directory-structure.md", "reason": "Verify future adapter placement and common contract boundaries are documented."}
-{"file": ".trellis/spec/nako-vfs/backend/quality-guidelines.md", "reason": "Verify future proof-adapter success criteria cover URI, capability, range-read, redaction, and testing requirements."}
-{"file": ".trellis/spec/nako-vfs/backend/error-handling.md", "reason": "Verify OpenDAL error mapping and storage failure classification risks are recorded."}
-{"file": ".trellis/spec/nako-vfs/backend/logging-guidelines.md", "reason": "Verify redaction/logging constraints are preserved."}
-{"file": ".trellis/tasks/archive/2026-06/06-07-06-07-storage-vfs-opendal-adapter-decision-spike/research/opendal-adapter-decision.md", "reason": "Verify ADR claims are supported by recorded OpenDAL research and current crate metadata."}

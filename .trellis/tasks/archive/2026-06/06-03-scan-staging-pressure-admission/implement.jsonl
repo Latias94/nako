@@ -1,6 +1,0 @@
-{"file": "docs/architecture/STORAGE_VFS.md", "reason": "Storage backend health, staging pressure, and VFS follow-on authority."}
-{"file": "docs/architecture/LIBRARY_PIPELINE.md", "reason": "Library scan/probe pipeline boundary and intake flow."}
-{"file": "docs/architecture/CONTROL_PLANE.md", "reason": "Durable job and scheduler boundary for queued scan behavior."}
-{"file": ".trellis/spec/nako-vfs/backend/index.md", "reason": "Storage/VFS redaction and backend behavior guidance."}
-{"file": ".trellis/spec/nako-library/backend/index.md", "reason": "Library scan/intake expectations before changing admission."}
-{"file": ".trellis/spec/nako-server/backend/index.md", "reason": "Server app-service and focused test guidance."}

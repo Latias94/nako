@@ -1,7 +1,0 @@
-{"file":"docs/architecture/PLAYBACK.md","reason":"Check playback scope and behavior claims."}
-{"file":"docs/architecture/CONTROL_PLANE.md","reason":"Check control-plane resource boundary alignment."}
-{"file":"docs/adr/0053-application-control-plane-boundary.md","reason":"Check runtime visibility and no hidden background work."}
-{"file":".trellis/spec/nako-playback/backend/index.md","reason":"Check planner purity."}
-{"file":".trellis/spec/nako-transcode/backend/index.md","reason":"Check transcode runtime constraints."}
-{"file":".trellis/spec/nako-server/backend/index.md","reason":"Check server tests and error mapping."}
-{"file":".trellis/spec/nako-vfs/backend/index.md","reason":"Check staging/source-read pressure handling."}

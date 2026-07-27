@@ -1,5 +1,0 @@
-{"_example": "Fill with {\"file\": \"<path>\", \"reason\": \"<why>\"}. Put spec/research files only — no code paths. Run `python3 .trellis/scripts/get_context.py --mode packages` to list available specs. Delete this line once real entries are added."}
-{"file": ".trellis/spec/nako-server/backend/index.md", "reason": "server backend spec index for selected artwork HTTP route work"}
-{"file": ".trellis/spec/guides/index.md", "reason": "shared Trellis thinking guide index"}
-{"file": ".trellis/spec/nako-server/backend/http-api-patterns.md", "reason": "selected artwork route cache and conditional response contract"}
-{"file": ".trellis/spec/nako-server/backend/quality-guidelines.md", "reason": "focused server test and gate expectations"}

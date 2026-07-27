@@ -1,5 +1,0 @@
-{"file": ".trellis/spec/nako-server/backend/directory-structure.md", "reason": "verify enqueue service remains internal app orchestration"}
-{"file": ".trellis/spec/nako-server/backend/quality-guidelines.md", "reason": "verify focused app tests and check gates"}
-{"file": ".trellis/spec/nako-library/backend/quality-guidelines.md", "reason": "verify persisted input uses SourceFingerprintHashJobInput and redaction constraints"}
-{"file": "docs/architecture/STORAGE_VFS.md", "reason": "verify follow-on wording after enqueue slice"}
-{"file": "docs/architecture/CONTROL_PLANE.md", "reason": "verify durable job control-plane status"}

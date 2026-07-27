@@ -1,7 +1,0 @@
-{"file":".trellis/spec/nako-server/backend/http-api-patterns.md","reason":"Keep Public Catalog handlers thin while moving access into app service."}
-{"file":".trellis/spec/nako-server/backend/database-guidelines.md","reason":"Server app services should call repository/facade methods instead of HTTP coordinating persistence and access shaping."}
-{"file":".trellis/spec/nako-server/backend/quality-guidelines.md","reason":"Select focused catalog HTTP gates for item detail access behavior."}
-{"file":".trellis/spec/nako-db/backend/quality-guidelines.md","reason":"Public Catalog Library Access projections must avoid access-after-pagination or post-DTO compensation patterns."}
-{"file":".trellis/spec/guides/cross-layer-thinking-guide.md","reason":"Change spans HTTP route, app service, database facade calls, and public DTO shaping."}
-{"file":".trellis/spec/guides/code-reuse-thinking-guide.md","reason":"Reuse existing accessible media item batch and source access logic rather than duplicating route helpers."}
-{"file":"docs/architecture/STATE_ACCESS.md","reason":"Public catalog item reads must respect Library Access before response shaping."}

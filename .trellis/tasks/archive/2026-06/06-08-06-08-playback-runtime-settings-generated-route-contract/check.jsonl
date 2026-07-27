@@ -1,4 +1,0 @@
-{"file": ".trellis/spec/nako-api/backend/admin-and-public-contracts.md", "reason": "Check playback runtime settings remains an Admin-only generated route."}
-{"file": ".trellis/spec/nako-api/backend/quality-guidelines.md", "reason": "Check route exclusions, generated contract drift, and inventory parity gates."}
-{"file": ".trellis/spec/admin-web/frontend/routes-forms-and-tests.md", "reason": "Check Settings page mutation behavior, mock fallback, generated route use, i18n, and redaction tests."}
-{"file": ".trellis/tasks/06-08-06-08-playback-runtime-settings-generated-route-contract/research/jellyfin-configuration-and-task-management.md", "reason": "Check implementation stays scoped to the narrow Nako playback runtime settings contract."}

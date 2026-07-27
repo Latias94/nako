@@ -1,7 +1,0 @@
-{"_example": "Fill with {\"file\": \"<path>\", \"reason\": \"<why>\"}. Put spec/research files only — no code paths. Run `python3 .trellis/scripts/get_context.py --mode packages` to list available specs. Delete this line once real entries are added."}
-{"file": ".trellis/spec/nako-server/backend/index.md", "reason": "nako-server backend spec index and quality expectations"}
-{"file": ".trellis/spec/nako-server/backend/http-api-patterns.md", "reason": "Verify route thinness and Direct Play access boundary"}
-{"file": ".trellis/spec/nako-server/backend/error-handling.md", "reason": "Check forbidden response status and public body semantics"}
-{"file": ".trellis/spec/nako-server/backend/quality-guidelines.md", "reason": "Focused nextest, cargo check, and route/app test expectations"}
-{"file": ".trellis/spec/guides/cross-layer-thinking-guide.md", "reason": "Verify source access remains enforced across HTTP and app-service callers"}
-{"file": ".trellis/spec/guides/code-reuse-thinking-guide.md", "reason": "Check helper reuse and avoid duplicated playback policy lookup"}

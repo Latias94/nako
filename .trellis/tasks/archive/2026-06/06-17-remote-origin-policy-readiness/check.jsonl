@@ -1,4 +1,0 @@
-{"file": ".trellis/spec/nako-api/backend/quality-guidelines.md", "reason": "API enum/generator/redaction quality checks"}
-{"file": ".trellis/spec/nako-server/backend/quality-guidelines.md", "reason": "Server focused quality gates and remote access readiness coverage"}
-{"file": ".trellis/spec/nako-api/backend/admin-and-public-contracts.md", "reason": "Admin DTO contract and generated contract review"}
-{"file": ".trellis/spec/nako-server/backend/http-api-patterns.md", "reason": "Admin route diagnostics and auth/redaction review"}

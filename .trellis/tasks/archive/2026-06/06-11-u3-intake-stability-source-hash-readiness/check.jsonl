@@ -1,8 +1,0 @@
-{"file": "CONTEXT.md", "reason": "Verify final wording and behavior preserve Nako domain vocabulary."}
-{"file": "docs/architecture/LIBRARY_PIPELINE.md", "reason": "Verify intake/watch changes stay within the library pipeline lane."}
-{"file": "docs/architecture/CONTROL_PLANE.md", "reason": "Verify durable jobs, runtime work, and diagnostics remain inside ADR 0053 control-plane boundaries."}
-{"file": "docs/architecture/STORAGE_VFS.md", "reason": "Verify Source Locator, Source Fingerprint, remote storage, and VFS repair redaction constraints."}
-{"file": ".trellis/spec/nako-library/backend/quality-guidelines.md", "reason": "Check stable intake and Source Fingerprint library behavior against required tests."}
-{"file": ".trellis/spec/nako-library/backend/logging-guidelines.md", "reason": "Check no raw local/storage details leak through diagnostics."}
-{"file": ".trellis/spec/nako-server/backend/source-fingerprint-hash-policy.md", "reason": "Check scan-originated source hash enqueue and Admin diagnostics stay within source-hash contracts."}
-{"file": ".trellis/spec/nako-server/backend/quality-guidelines.md", "reason": "Check server tests and durable job redaction requirements."}

@@ -1,4 +1,0 @@
-{"file": "docs/architecture/LANES.md", "reason": "Parallel lane ownership and coordination baseline."}
-{"file": "docs/architecture/STORAGE_VFS.md", "reason": "Storage/VFS follow-on authority for this wave."}
-{"file": "docs/architecture/LIBRARY_PIPELINE.md", "reason": "Library intake follow-on authority for this wave."}
-{"file": "docs/architecture/CONTROL_PLANE.md", "reason": "Durable scheduler/runtime boundary for this wave."}

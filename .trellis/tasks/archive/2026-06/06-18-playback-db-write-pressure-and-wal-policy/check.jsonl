@@ -1,9 +1,0 @@
-{"file":".trellis/spec/nako-db/backend/index.md","reason":"Check coverage for SQLite runtime policy and repository parity around playback writes."}
-{"file":".trellis/spec/nako-db/backend/database-guidelines.md","reason":"Check adapter and migration rules if database behavior changes."}
-{"file":".trellis/spec/nako-db/backend/error-handling.md","reason":"Check SQLx and repository error conversion behavior for write-pressure paths."}
-{"file":".trellis/spec/nako-db/backend/quality-guidelines.md","reason":"Check contract-test completeness for fresh-store and migrated-store persistence coverage."}
-{"file":".trellis/spec/nako-server/backend/index.md","reason":"Check playback write paths owned by nako-server app flows."}
-{"file":".trellis/spec/nako-server/backend/quality-guidelines.md","reason":"Check server test gating and focused validation for playback write pressure."}
-{"file":".trellis/spec/nako-server/backend/directory-structure.md","reason":"Check module ownership and flow boundaries for playback write hotspots."}
-{"file":".trellis/spec/nako-playback/backend/index.md","reason":"Check playback vocabulary and planner boundary consistency in docs and code changes."}
-{"file":".trellis/spec/guides/index.md","reason":"Check shared thinking guidance for code reuse and cross-layer implications."}

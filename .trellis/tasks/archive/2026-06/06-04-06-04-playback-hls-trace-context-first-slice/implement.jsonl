@@ -1,8 +1,0 @@
-{"file": ".trellis/spec/nako-server/backend/index.md", "reason": "Server backend pre-development index for HTTP/app playback changes."}
-{"file": ".trellis/spec/nako-server/backend/http-api-patterns.md", "reason": "HLS playlist handlers extract HTTP trace context and must preserve auth/access route patterns."}
-{"file": ".trellis/spec/nako-server/backend/logging-guidelines.md", "reason": "Trace propagation must remain redaction-safe and align with request span policy."}
-{"file": ".trellis/spec/nako-server/backend/quality-guidelines.md", "reason": "Focused server test and gate expectations for playback route changes."}
-{"file": ".trellis/spec/nako-server/backend/directory-structure.md", "reason": "Keep HTTP handler conversion separate from app playback orchestration."}
-{"file": ".trellis/spec/guides/index.md", "reason": "Shared guide index for cross-layer work."}
-{"file": ".trellis/spec/guides/cross-layer-thinking-guide.md", "reason": "Trace context crosses HTTP, app service, runtime orchestration, and event payload layers."}
-{"file": ".trellis/tasks/06-04-06-04-playback-hls-trace-context-first-slice/research/current-hls-trace-context-state.md", "reason": "Local research on current HLS trace context propagation seams and tests."}

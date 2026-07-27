@@ -1,6 +1,0 @@
-{"file": ".trellis/spec/admin-web/frontend/index.md", "reason": "Admin Web frontend scope and required check expectations."}
-{"file": ".trellis/spec/admin-web/frontend/routes-forms-and-tests.md", "reason": "Required Admin Web checks, mutation boundary assertions, redaction assertions, and build expectations."}
-{"file": ".trellis/spec/guides/index.md", "reason": "Shared guide index for final quality review."}
-{"file": ".trellis/spec/guides/code-reuse-thinking-guide.md", "reason": "Final review for duplicated playback-state action failure logic."}
-{"file": ".trellis/spec/guides/cross-layer-thinking-guide.md", "reason": "Final review for Continue Watching failure and retry flow."}
-{"file": ".trellis/tasks/archive/2026-06/06-14-media-web-playback-action-failure-ux/prd.md", "reason": "Acceptance criteria and out-of-scope checks."}

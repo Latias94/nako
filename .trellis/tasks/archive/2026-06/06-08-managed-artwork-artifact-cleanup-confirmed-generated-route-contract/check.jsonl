@@ -1,8 +1,0 @@
-{"_example": "Fill with {\"file\": \"<path>\", \"reason\": \"<why>\"}. Put spec/research files only — no code paths. Run `python3 .trellis/scripts/get_context.py --mode packages` to list available specs. Delete this line once real entries are added."}
-{"file": ".trellis/spec/nako-api/backend/admin-and-public-contracts.md", "reason": "Verify Admin/Public split and generated route inventory"}
-{"file": ".trellis/spec/nako-api/backend/quality-guidelines.md", "reason": "Verify generated artifacts, confirmation, redaction, and route parity gates"}
-{"file": ".trellis/spec/nako-server/backend/http-api-patterns.md", "reason": "Verify Admin route remains guarded and server handler stays thin"}
-{"file": ".trellis/spec/nako-server/backend/quality-guidelines.md", "reason": "Verify focused server gates and redaction rules"}
-{"file": ".trellis/spec/admin-web/frontend/routes-forms-and-tests.md", "reason": "Verify Admin Web generated client command and no UI mutation drift"}
-{"file": ".trellis/spec/guides/cross-layer-thinking-guide.md", "reason": "Verify route/query/DTO/client alignment"}
-{"file": ".trellis/tasks/06-08-managed-artwork-artifact-cleanup-confirmed-generated-route-contract/research/jellyfin-artwork-cleanup-comparison.md", "reason": "Verify implementation follows server-derived cleanup principle"}

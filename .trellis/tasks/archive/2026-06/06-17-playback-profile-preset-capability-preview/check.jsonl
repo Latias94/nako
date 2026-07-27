@@ -1,7 +1,0 @@
-{"file":"docs/architecture/PLAYBACK.md","reason":"Verify the change stays within Device Capability Profiles and does not alter planner/runtime boundaries."}
-{"file":".trellis/spec/nako-playback/backend/quality-guidelines.md","reason":"Check planner purity, profile identity behavior, and decision behavior invariants."}
-{"file":".trellis/spec/nako-api/backend/admin-and-public-contracts.md","reason":"Check Admin-only DTO/generator rules and generated contract synchronization."}
-{"file":".trellis/spec/nako-api/backend/quality-guidelines.md","reason":"Check generated artifacts, redaction, and Public/Admin separation gates."}
-{"file":".trellis/spec/nako-server/backend/http-api-patterns.md","reason":"Check Admin diagnostics mapping follows existing server route patterns."}
-{"file":".trellis/spec/nako-server/backend/quality-guidelines.md","reason":"Check selected server test gates and diagnostics safety."}
-{"file":".trellis/spec/guides/cross-layer-thinking-guide.md","reason":"Verify data shape consistency across playback, API, server, and generated TS contract layers."}

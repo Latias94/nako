@@ -1,8 +1,0 @@
-{"_example": "Fill with {\"file\": \"<path>\", \"reason\": \"<why>\"}. Put spec/research files only — no code paths. Run `python3 .trellis/scripts/get_context.py --mode packages` to list available specs. Delete this line once real entries are added."}
-{"file": "docs/architecture/LANES.md", "reason": "Web-product and playback-transcode shared scope routing."}
-{"file": "docs/architecture/PLAYBACK.md", "reason": "Playback ticket, HLS, session, and client playback boundaries."}
-{"file": "docs/architecture/STATE_ACCESS.md", "reason": "User playback state, auth, and access constraints."}
-{"file": ".trellis/spec/admin-web/frontend/index.md", "reason": "Frontend conventions for Web surfaces."}
-{"file": ".trellis/spec/admin-web/frontend/routes-forms-and-tests.md", "reason": "Route, data-source, Vitest, and Playwright guidance."}
-{"file": ".trellis/spec/nako-client-protocol/backend/index.md", "reason": "Public Client route and DTO contract guidance."}
-{"file": ".trellis/spec/nako-api/backend/index.md", "reason": "Public/Admin DTO separation if API contracts are touched."}

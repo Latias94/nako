@@ -1,3 +1,0 @@
-{"file": ".trellis/spec/nako-server/backend/addon-resource-flow-patterns.md", "reason": "Target spec for the server-local Addon resource-flow session helper convention."}
-{"file": ".trellis/tasks/archive/2026-06/06-06-server-local-addon-resource-flow-session-helper/prd.md", "reason": "Completed implementation task that introduced SelectionSessionStore and defined boundaries."}
-{"file": ".trellis/tasks/archive/2026-06/06-06-document-addon-resource-flow-session-helper/prd.md", "reason": "Spec sync requirements and acceptance criteria."}

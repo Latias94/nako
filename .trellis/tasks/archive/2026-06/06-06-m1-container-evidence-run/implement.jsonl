@@ -1,5 +1,0 @@
-{"file": "docs/deployment/M1_LADDER_EVIDENCE_MATRIX.md", "reason": "Defines container mode evidence and skip classification."}
-{"file": "docs/deployment/RELEASE_CHECKLIST.md", "reason": "Release checklist context for container/config evidence."}
-{"file": "docs/architecture/OPERATIONS_RELEASE.md", "reason": "Operations/release owner lane for container config evidence."}
-{"file": "docs/architecture/LANES.md", "reason": "Owner lane mapping for container gate failures."}
-{"file": ".trellis/spec/nako-server/backend/quality-guidelines.md", "reason": "Server config and release ladder quality gate guidance."}

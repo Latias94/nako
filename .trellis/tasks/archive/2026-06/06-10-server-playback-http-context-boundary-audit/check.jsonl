@@ -1,7 +1,0 @@
-{"file": ".trellis/spec/nako-server/backend/index.md", "reason": "Checklist for verifying server backend work."}
-{"file": ".trellis/spec/nako-server/backend/http-api-patterns.md", "reason": "Verify HTTP routes stay thin and status/body behavior is preserved."}
-{"file": ".trellis/spec/nako-server/backend/error-handling.md", "reason": "Verify renderer ticket rejection keeps stable public error mapping."}
-{"file": ".trellis/spec/nako-server/backend/logging-guidelines.md", "reason": "Verify ticket/principal values are not logged."}
-{"file": ".trellis/spec/nako-server/backend/quality-guidelines.md", "reason": "Use server-focused test gates."}
-{"file": ".trellis/spec/nako-server/backend/directory-structure.md", "reason": "Verify app-service ownership of workflow logic."}
-{"file": ".trellis/spec/guides/cross-layer-thinking-guide.md", "reason": "Verify HTTP-to-app contract stays explicit and non-leaky."}

@@ -1,9 +1,0 @@
-{"file": ".trellis/spec/nako-core/backend/index.md", "reason": "Repository trait and domain query record changes must follow core boundary rules."}
-{"file": ".trellis/spec/nako-core/backend/database-guidelines.md", "reason": "Browse query is a repository contract change using PageRequest and domain terms."}
-{"file": ".trellis/spec/nako-db/backend/index.md", "reason": "SQLite/PostgreSQL adapter implementation and contract tests live in nako-db."}
-{"file": ".trellis/spec/nako-db/backend/database-guidelines.md", "reason": "SQL query shape, row mapping, and adapter parity rules for repository methods."}
-{"file": ".trellis/spec/nako-server/backend/index.md", "reason": "Library app service remains the HTTP-facing orchestration layer."}
-{"file": ".trellis/spec/nako-server/backend/database-guidelines.md", "reason": "Server app service must delegate persistence and keep list surfaces bounded."}
-{"file": ".trellis/spec/nako-server/backend/quality-guidelines.md", "reason": "Focused server and route test gate selection."}
-{"file": ".trellis/spec/nako-catalog/backend/index.md", "reason": "Catalog projection terms and browse scale constraints from the catalog layer."}
-{"file": ".trellis/spec/guides/index.md", "reason": "Cross-layer and reuse thinking guide entry point for backend repository changes."}

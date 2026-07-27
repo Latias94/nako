@@ -1,6 +1,0 @@
-{"file": ".trellis/spec/nako/backend/index.md", "reason": "Quality/spec entry point for any future Nako backend changes derived from the research."}
-{"file": ".trellis/spec/nako-addon-protocol/backend/index.md", "reason": "Check that future addon decisions preserve the out-of-process protocol boundary."}
-{"file": ".trellis/spec/nako-server/backend/index.md", "reason": "Check future server/control-plane changes against local architecture rules."}
-{"file": ".trellis/tasks/06-13-nako-competitive-analysis/research/nako-current-positioning.md", "reason": "Verify future claims against current Nako positioning research."}
-{"file": ".trellis/tasks/06-13-nako-competitive-analysis/research/jellyfin-plex-competitive-landscape.md", "reason": "Verify future competitive claims against competitor research."}
-{"file": ".trellis/tasks/06-13-nako-competitive-analysis/research/competitive-analysis-summary.md", "reason": "Verify future implementation or planning against the product summary."}

@@ -1,7 +1,0 @@
-{"_example": "Fill with {\"file\": \"<path>\", \"reason\": \"<why>\"}. Put spec/research files only — no code paths. Run `python3 .trellis/scripts/get_context.py --mode packages` to list available specs. Delete this line once real entries are added."}
-{"file": ".trellis/spec/nako-transcode/backend/quality-guidelines.md", "reason": "hardware diagnostics quality gates for review"}
-{"file": ".trellis/spec/nako-transcode/backend/index.md", "reason": "transcode backend spec index for review"}
-{"file": ".trellis/spec/nako-transcode/backend/directory-structure.md", "reason": "review transcode boundary placement"}
-{"file": ".trellis/spec/nako-transcode/backend/logging-guidelines.md", "reason": "review redaction-safe diagnostics"}
-{"file": ".trellis/spec/guides/index.md", "reason": "shared Trellis thinking guide index for review"}
-{"file": ".trellis/spec/nako-transcode/backend/error-handling.md", "reason": "review degraded hardware probe error behavior"}

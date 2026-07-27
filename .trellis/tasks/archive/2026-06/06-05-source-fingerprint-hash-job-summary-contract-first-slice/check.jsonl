@@ -1,5 +1,0 @@
-{"file": ".trellis/spec/nako-library/backend/index.md", "reason": "Review package placement and source hash focused tests."}
-{"file": ".trellis/spec/nako-library/backend/directory-structure.md", "reason": "Verify no new crate/module boundary was introduced unnecessarily."}
-{"file": ".trellis/spec/nako-library/backend/error-handling.md", "reason": "Verify errors and serialization stay redaction-safe."}
-{"file": ".trellis/spec/nako-library/backend/quality-guidelines.md", "reason": "Verify source fingerprint summary redaction and no executor/scheduler scope creep."}
-{"file": ".trellis/spec/guides/code-reuse-thinking-guide.md", "reason": "Verify existing types and constants are reused."}

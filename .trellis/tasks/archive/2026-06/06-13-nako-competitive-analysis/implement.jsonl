@@ -1,6 +1,0 @@
-{"file": ".trellis/spec/nako/backend/index.md", "reason": "Default Nako backend spec entry point if this research becomes implementation work."}
-{"file": ".trellis/spec/nako-addon-protocol/backend/index.md", "reason": "Addon Protocol boundaries are central to the competitive differentiation."}
-{"file": ".trellis/spec/nako-server/backend/index.md", "reason": "Server/control-plane implementation would own Admin, Addon, playback, and diagnostics composition."}
-{"file": ".trellis/tasks/06-13-nako-competitive-analysis/research/nako-current-positioning.md", "reason": "Research summary of current Nako product and addon positioning."}
-{"file": ".trellis/tasks/06-13-nako-competitive-analysis/research/jellyfin-plex-competitive-landscape.md", "reason": "Competitor landscape for Jellyfin and Plex."}
-{"file": ".trellis/tasks/06-13-nako-competitive-analysis/research/competitive-analysis-summary.md", "reason": "Product decision summary and recommended roadmap implications."}

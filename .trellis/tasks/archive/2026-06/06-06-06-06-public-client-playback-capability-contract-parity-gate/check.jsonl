@@ -1,9 +1,0 @@
-{"file": ".trellis/spec/guides/cross-layer-thinking-guide.md", "reason": "Verify playback capability fields survive every contract layer without drift."}
-{"file": ".trellis/spec/nako-client-protocol/backend/index.md", "reason": "Check protocol DTO field-set and Public Client route inventory boundaries."}
-{"file": ".trellis/spec/nako-client-core/backend/index.md", "reason": "Check core request builder query rendering and redacted previews."}
-{"file": ".trellis/spec/nako-client/backend/index.md", "reason": "Check Rust SDK streaming builders and dependency boundaries."}
-{"file": ".trellis/spec/nako-api/backend/admin-and-public-contracts.md", "reason": "Check Public Client generated outputs remain separate from Admin surfaces."}
-{"file": ".trellis/spec/nako-api/backend/quality-guidelines.md", "reason": "Check OpenAPI/SDK parity and host-runtime redaction gates."}
-{"file": ".trellis/spec/nako-server/backend/http-api-patterns.md", "reason": "Check server HTTP mapping remains thin and public-safe."}
-{"file": ".trellis/spec/nako-server/backend/quality-guidelines.md", "reason": "Check focused server validation command selection."}
-{"file": ".trellis/tasks/06-06-06-06-public-client-playback-capability-contract-parity-gate/research/parity-gate-resume-inventory.md", "reason": "Check validation evidence against the task-local existing gate inventory."}

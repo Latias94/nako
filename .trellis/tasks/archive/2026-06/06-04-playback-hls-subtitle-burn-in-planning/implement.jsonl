@@ -1,8 +1,0 @@
-{"file": ".trellis/spec/guides/index.md", "reason": "Shared thinking guide for cross-layer subtitle strategy flow and burn-in planning."}
-{"file": ".trellis/spec/nako-playback/backend/index.md", "reason": "Playback planner owns subtitle strategy selection and transcode requirement shaping."}
-{"file": ".trellis/spec/nako-playback/backend/quality-guidelines.md", "reason": "Playback planner changes must stay deterministic and keep subtitle strategy in typed values."}
-{"file": ".trellis/spec/nako-transcode/backend/index.md", "reason": "Transcode pipeline and HLS command planning own subtitle strategy execution details."}
-{"file": ".trellis/spec/nako-transcode/backend/quality-guidelines.md", "reason": "HLS command planning changes must keep argv typed, validated, and testable."}
-{"file": ".trellis/spec/nako-server/backend/index.md", "reason": "Server HLS orchestration maps playback decisions into runtime planning and execution."}
-{"file": ".trellis/tasks/06-04-playback-hls-subtitle-burn-in-planning/research/current-hls-subtitle-flow.md", "reason": "Local code-path observations for the current subtitle strategy seam."}
-{"file": ".trellis/tasks/06-04-playback-hls-subtitle-burn-in-planning/research/ffmpeg-subtitles-filter.md", "reason": "Official FFmpeg subtitle filter facts for the eventual burn-in adapter."}

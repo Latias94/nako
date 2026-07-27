@@ -1,8 +1,0 @@
-{"file": ".trellis/spec/nako-core/backend/quality-guidelines.md", "reason": "Verify repository trait/domain contract quality."}
-{"file": ".trellis/spec/nako-db/backend/database-guidelines.md", "reason": "Review SQL, row mapping, and adapter parity."}
-{"file": ".trellis/spec/nako-db/backend/quality-guidelines.md", "reason": "Verify repository projection contract coverage and validation gates."}
-{"file": ".trellis/spec/nako-db/backend/error-handling.md", "reason": "Check SQLx and parsing error conversion."}
-{"file": ".trellis/spec/nako-server/backend/database-guidelines.md", "reason": "Verify app service delegates persistence/hydration rather than owning query logic."}
-{"file": ".trellis/spec/nako-server/backend/quality-guidelines.md", "reason": "Verify focused server tests and paginated route behavior."}
-{"file": ".trellis/spec/guides/cross-layer-thinking-guide.md", "reason": "Cross-layer consistency review for core/db/server flow."}
-{"file": ".trellis/tasks/06-08-06-08-library-source-inventory-projection/research/source-inventory-jellyfin-comparison.md", "reason": "Confirm implementation stays within the researched slice boundary."}

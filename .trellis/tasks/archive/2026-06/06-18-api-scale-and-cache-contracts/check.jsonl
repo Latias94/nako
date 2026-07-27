@@ -1,7 +1,0 @@
-{"file":".trellis/spec/guides/cross-layer-thinking-guide.md","reason":"Quality review should verify the browse/search/cache data flow across layers before implementation is considered done."}
-{"file":".trellis/spec/guides/code-reuse-thinking-guide.md","reason":"The checker should reject duplicate paging or cache helpers when existing code can carry the contract."}
-{"file":".trellis/spec/nako-db/backend/quality-guidelines.md","reason":"DB contract parity and bounded browse/search list coverage are the main regression risks in this task."}
-{"file":".trellis/spec/nako-server/backend/quality-guidelines.md","reason":"Focused route tests and response-budget assertions live in the server quality gates."}
-{"file":".trellis/spec/nako-server/backend/http-api-patterns.md","reason":"The checker should verify HTTP handlers stay thin and cache-policy behavior stays in the route boundary."}
-{"file":".trellis/spec/nako-api/backend/admin-and-public-contracts.md","reason":"If a public paging DTO changes, the check pass must verify the generated public contract stays aligned."}
-{"file":".trellis/tasks/06-18-api-scale-and-cache-contracts/research/current-state.md","reason":"Check the task against the stated shipped-state gaps and the deferred cursor/validator decision."}

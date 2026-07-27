@@ -1,7 +1,0 @@
-{"file": ".trellis/spec/guides/cross-layer-thinking-guide.md", "reason": "Source hash triggering spans scan, durable jobs, Admin/API, VFS, and source identity."}
-{"file": ".trellis/spec/nako-vfs/backend/index.md", "reason": "VFS/source locator and storage backend boundaries."}
-{"file": ".trellis/spec/nako-library/backend/index.md", "reason": "Source Fingerprint, scan, and source identity policy."}
-{"file": ".trellis/spec/nako-server/backend/index.md", "reason": "Durable jobs, scheduler, runtime, and app service boundary."}
-{"file": ".trellis/spec/nako-api/backend/index.md", "reason": "Admin/API implications if triggering or diagnostics are proposed."}
-{"file": ".trellis/tasks/archive/2026-06/06-05-06-05-cross-lane-architecture-audit/research/storage-library-control-plane.md", "reason": "Parent storage/library/control-plane audit findings."}
-{"file": ".trellis/tasks/archive/2026-06/06-05-06-05-cross-lane-architecture-audit/research/synthesis.md", "reason": "Cross-lane priority and parallelization constraints."}

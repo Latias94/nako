@@ -1,7 +1,0 @@
-{"file": ".trellis/spec/guides/code-reuse-thinking-guide.md", "reason": "The implementation should avoid duplicating HLS command-fragment assembly while deepening the builder seam."}
-{"file": ".trellis/spec/nako-transcode/backend/index.md", "reason": "The task changes HLS FFmpeg command planning inside nako-transcode."}
-{"file": ".trellis/spec/nako-transcode/backend/directory-structure.md", "reason": "The implementation must keep FFmpeg, HLS, artifact, profile, and runtime responsibilities in the right modules."}
-{"file": ".trellis/spec/nako-transcode/backend/error-handling.md", "reason": "HLS command validation errors must remain typed and caller-safe."}
-{"file": ".trellis/spec/nako-transcode/backend/quality-guidelines.md", "reason": "The implementation must preserve typed FFmpeg planning and exact argv tests."}
-{"file": ".trellis/spec/nako-transcode/backend/logging-guidelines.md", "reason": "FFmpeg diagnostics and command planning must stay redaction-safe if logs are touched."}
-{"file": ".trellis/tasks/archive/2026-06/06-03-transcode-architecture-parity-jellyfin/research/jellyfin-transcode-parity.md", "reason": "The previous parity task identified ffmpeg/hls.rs as the third deepening candidate."}

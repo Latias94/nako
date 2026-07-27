@@ -1,9 +1,0 @@
-{"file": ".trellis/spec/nako-server/backend/index.md", "reason": "Server app-service and test entry point for queued source fingerprint hash preparation."}
-{"file": ".trellis/spec/nako-server/backend/directory-structure.md", "reason": "Control-plane boundary and source fingerprint hash app-service placement."}
-{"file": ".trellis/spec/nako-server/backend/database-guidelines.md", "reason": "Repository-only server persistence access and no schema ownership."}
-{"file": ".trellis/spec/nako-server/backend/error-handling.md", "reason": "Redaction-safe NakoError behavior for app-service validation failures."}
-{"file": ".trellis/spec/nako-server/backend/logging-guidelines.md", "reason": "Redaction constraints for runtime and durable-job-adjacent diagnostics."}
-{"file": ".trellis/spec/nako-server/backend/quality-guidelines.md", "reason": "Focused server gates and source hash app-test expectations."}
-{"file": ".trellis/spec/nako-library/backend/quality-guidelines.md", "reason": "Source fingerprint hash job input and in-memory request redaction contracts."}
-{"file": ".trellis/spec/guides/cross-layer-thinking-guide.md", "reason": "Planner crosses job input, repository source state, and in-memory execution request boundaries."}
-{"file": ".trellis/spec/guides/code-reuse-thinking-guide.md", "reason": "Search/reuse guidance for existing source hash helpers and constants."}

@@ -1,6 +1,0 @@
-{"file": ".trellis/spec/nako-server/backend/index.md", "reason": "Server control-plane ownership and app/service boundary checks."}
-{"file": ".trellis/spec/nako-server/backend/directory-structure.md", "reason": "Check that startup/composition/runtime changes keep code in the right server layer."}
-{"file": ".trellis/spec/nako-server/backend/error-handling.md", "reason": "Verify any changed startup/runtime errors remain redaction-safe and correctly mapped."}
-{"file": ".trellis/spec/nako-server/backend/logging-guidelines.md", "reason": "Check trace/log safety for startup and runtime diagnostics."}
-{"file": ".trellis/spec/nako-server/backend/quality-guidelines.md", "reason": "Check server tests and gates for the refactored workflow."}
-{"file": ".trellis/tasks/06-14-nako-server-control-plane-seam-deepening/research/control-plane-seam-deepening.md", "reason": "Check against the task-local seam selection and intended scope."}

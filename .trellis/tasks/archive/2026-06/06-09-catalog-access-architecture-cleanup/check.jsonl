@@ -1,5 +1,0 @@
-{"file":".trellis/spec/nako-server/backend/http-api-patterns.md","reason":"Review that `/people/{person_id}` remains a thin HTTP route and returns the existing public error shape."}
-{"file":".trellis/spec/nako-server/backend/quality-guidelines.md","reason":"Run focused catalog route tests and server check for route behavior changes."}
-{"file":".trellis/spec/nako-db/backend/quality-guidelines.md","reason":"Confirm no repository contract change requires additional DB parity tests beyond existing catalog access contracts."}
-{"file":".trellis/spec/guides/cross-layer-thinking-guide.md","reason":"Check layer responsibility after moving person detail access logic into the app service."}
-{"file":"docs/architecture/STATE_ACCESS.md","reason":"Verify access policy remains before pagination/broad work and public DTOs remain redacted."}

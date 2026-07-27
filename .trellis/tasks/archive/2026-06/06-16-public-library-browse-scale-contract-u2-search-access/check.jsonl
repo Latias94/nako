@@ -1,8 +1,0 @@
-{"file":".trellis/spec/nako-server/backend/index.md","reason":"Verify public route changes follow server HTTP, auth, access, and control-plane rules."}
-{"file":".trellis/spec/nako-server/backend/http-api-patterns.md","reason":"Check handler shape, error mapping, principal use, and access filtering for catalog/library routes."}
-{"file":".trellis/spec/nako-server/backend/quality-guidelines.md","reason":"Check focused route tests, pagination bounds, and redaction-sensitive assertions."}
-{"file":".trellis/spec/nako-api/backend/index.md","reason":"Verify public DTO or contract changes stay in the correct API layer."}
-{"file":".trellis/spec/nako-api/backend/admin-and-public-contracts.md","reason":"Check public route/DTO changes do not leak Admin/internal surfaces or require generated artifact updates."}
-{"file":".trellis/spec/nako-client-protocol/backend/index.md","reason":"Check PageInfo, route inventory, and sensitive field exclusion in the public protocol boundary."}
-{"file":".trellis/spec/nako-db/backend/index.md","reason":"Verify search/access/browse repository changes keep backend contract boundaries and parity."}
-{"file":".trellis/spec/nako-db/backend/quality-guidelines.md","reason":"Check DB contract coverage and selected SQLite/PostgreSQL validation gates."}

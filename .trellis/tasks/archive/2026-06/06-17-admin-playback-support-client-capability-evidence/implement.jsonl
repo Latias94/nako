@@ -1,8 +1,0 @@
-{"file":".trellis/spec/nako-api/backend/index.md","reason":"Admin DTO and generated contract ownership rules."}
-{"file":".trellis/spec/nako-api/backend/admin-and-public-contracts.md","reason":"Admin/public split, redaction, and generated Admin contract requirements."}
-{"file":".trellis/spec/nako-api/backend/quality-guidelines.md","reason":"Existing playback profile diagnostics contract and required tests."}
-{"file":".trellis/spec/nako-server/backend/index.md","reason":"Server HTTP/app boundary rules before handler mapping changes."}
-{"file":".trellis/spec/nako-server/backend/http-api-patterns.md","reason":"Admin playback/support route access and redaction patterns."}
-{"file":".trellis/spec/nako-db/backend/index.md","reason":"Repository trait and SQLite/Postgres adapter rules for linked playback-session lookup."}
-{"file":".trellis/spec/nako-db/backend/quality-guidelines.md","reason":"Repository contract test requirements across SQLite/Postgres-compatible behavior."}
-{"file":"docs/architecture/PLAYBACK.md","reason":"Playback explainability lane and support diagnostics boundary."}

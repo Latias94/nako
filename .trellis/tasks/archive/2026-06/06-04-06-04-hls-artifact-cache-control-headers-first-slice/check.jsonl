@@ -1,6 +1,0 @@
-{"file": ".trellis/spec/nako-server/backend/index.md", "reason": "Server backend quality checklist for changed HTTP playback code."}
-{"file": ".trellis/spec/nako-server/backend/http-api-patterns.md", "reason": "Verify cache headers stay in HTTP response layer and do not alter auth/API contracts."}
-{"file": ".trellis/spec/nako-server/backend/quality-guidelines.md", "reason": "Verify focused server checks and route tests are sufficient."}
-{"file": ".trellis/spec/guides/index.md", "reason": "Shared guide index for cross-layer verification."}
-{"file": ".trellis/spec/guides/cross-layer-thinking-guide.md", "reason": "Verify cache-control data flow is coherent and access-control safe."}
-{"file": ".trellis/tasks/06-04-06-04-hls-artifact-cache-control-headers-first-slice/research/current-hls-cache-header-state.md", "reason": "Verify implementation follows the conservative HLS no-store seam and avoids scoped-out cache work."}

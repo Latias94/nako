@@ -1,6 +1,0 @@
-{"file": "docs/architecture/PLAYBACK.md", "reason": "Playback/transcode capability map and proposed artifact I/O pressure lane."}
-{"file": "docs/adr/0052-hls-runtime-and-media-engine-boundary.md", "reason": "HLS runtime and media engine boundary decision."}
-{"file": "docs/adr/0049-source-aware-transcode-runtime.md", "reason": "Source-aware transcode runtime constraints."}
-{"file": "docs/adr/0005-bounded-async-pipelines-and-resource-budgets.md", "reason": "Bounded async/resource budget rules."}
-{"file": ".trellis/spec/nako-server/backend/quality-guidelines.md", "reason": "Backend test expectations for runtime/server changes."}
-{"file": ".trellis/spec/nako-server/backend/logging-guidelines.md", "reason": "Trace/logging rules for runtime diagnostics."}

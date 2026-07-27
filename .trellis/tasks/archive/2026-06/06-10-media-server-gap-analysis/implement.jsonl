@@ -1,6 +1,0 @@
-{"file": ".trellis/tasks/06-10-media-server-gap-analysis/prd.md", "reason": "Feature requirements, acceptance criteria, and roadmap slices for media-server maturity work."}
-{"file": ".trellis/tasks/06-10-media-server-gap-analysis/research/adr-spec-constraints.md", "reason": "Architecture decisions and spec constraints that bound implementation choices."}
-{"file": ".trellis/tasks/06-10-media-server-gap-analysis/research/nako-current-state.md", "reason": "Current Nako implementation map and product gap analysis."}
-{"file": ".trellis/spec/nako-api/backend/index.md", "reason": "Backend API contract guidance for Admin DTO and generated contract changes."}
-{"file": ".trellis/spec/nako-server/backend/index.md", "reason": "Server composition and Admin route implementation guidance."}
-{"file": ".trellis/spec/admin-web/frontend/index.md", "reason": "Admin Web route, rendering, and test guidance."}

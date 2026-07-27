@@ -1,6 +1,0 @@
-{"file": ".trellis/spec/nako-server/backend/index.md", "reason": "Server backend checklist and authority index."}
-{"file": ".trellis/spec/nako-server/backend/http-api-patterns.md", "reason": "HTTP route/auth/access and playback boundary examples."}
-{"file": ".trellis/spec/nako-server/backend/error-handling.md", "reason": "Preserve public NotFound/Forbidden/Conflict HTTP mapping behavior."}
-{"file": ".trellis/spec/nako-server/backend/quality-guidelines.md", "reason": "Focused server playback route/app-service test gates."}
-{"file": ".trellis/spec/guides/index.md", "reason": "Shared thinking-guide index required before development."}
-{"file": ".trellis/spec/guides/cross-layer-thinking-guide.md", "reason": "This task moves authorization across HTTP/app-service boundary."}

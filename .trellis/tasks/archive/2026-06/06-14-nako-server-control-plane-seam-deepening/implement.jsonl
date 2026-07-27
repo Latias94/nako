@@ -1,7 +1,0 @@
-{"file": ".trellis/spec/nako-server/backend/index.md", "reason": "Server control-plane ownership, app/service boundaries, and authority references."}
-{"file": ".trellis/spec/nako-server/backend/directory-structure.md", "reason": "Guidance for keeping startup, composition, runtime, and app orchestration in the correct server layer."}
-{"file": ".trellis/spec/nako-server/backend/error-handling.md", "reason": "HTTP-facing and app-facing error mapping stays redaction-safe if startup/runtime behavior changes."}
-{"file": ".trellis/spec/nako-server/backend/logging-guidelines.md", "reason": "Startup/runtime refactors may touch trace and log boundaries."}
-{"file": ".trellis/spec/nako-server/backend/quality-guidelines.md", "reason": "Focused server test patterns and gates for refactored startup/runtime behavior."}
-{"file": ".trellis/spec/guides/cross-layer-thinking-guide.md", "reason": "The task spans app composition, startup workflow, and runtime supervision across layer boundaries."}
-{"file": ".trellis/tasks/06-14-nako-server-control-plane-seam-deepening/research/control-plane-seam-deepening.md", "reason": "Task-local research note selecting the startup/composition/runtime seam and explaining why it is the next best slice."}

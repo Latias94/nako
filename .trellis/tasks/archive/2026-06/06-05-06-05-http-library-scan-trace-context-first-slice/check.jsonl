@@ -1,4 +1,0 @@
-{"file": ".trellis/spec/nako-server/backend/http-api-patterns.md", "reason": "verify HTTP trace context remains typed and redaction-safe"}
-{"file": ".trellis/spec/nako-server/backend/logging-guidelines.md", "reason": "verify durable job trace context is normalized and safe"}
-{"file": "docs/architecture/CONTROL_PLANE.md", "reason": "verify shipped/follow-on scope is accurately updated"}
-{"file": ".trellis/spec/guides/index.md", "reason": "shared review guide"}

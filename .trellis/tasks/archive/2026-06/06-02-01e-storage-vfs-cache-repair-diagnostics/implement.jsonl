@@ -1,6 +1,0 @@
-{"file": "docs/architecture/STORAGE_VFS.md", "reason": "Storage/VFS capability map and cache/source identity boundaries."}
-{"file": "docs/adr/0016-remote-storage-and-vfs-cache-boundary.md", "reason": "Remote storage and VFS cache boundary decision."}
-{"file": "docs/adr/0017-playback-streaming-and-remote-hardening-boundaries.md", "reason": "Shared playback/storage boundary constraints."}
-{"file": "docs/adr/0053-application-control-plane-boundary.md", "reason": "Diagnostics and control-plane redaction boundaries."}
-{"file": ".trellis/spec/nako-server/backend/logging-guidelines.md", "reason": "Secret-safe diagnostic logging patterns."}
-{"file": ".trellis/spec/nako-server/backend/quality-guidelines.md", "reason": "Backend test expectations for VFS/server changes."}

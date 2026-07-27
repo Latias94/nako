@@ -1,3 +1,0 @@
-{"file": ".trellis/tasks/06-06-source-duplicate-reconciliation-operator-flow/prd.md", "reason": "Task requirements, scope, and acceptance criteria"}
-{"file": ".trellis/spec/admin-web/frontend/routes-forms-and-tests.md", "reason": "Check Admin Web route/data-source/test compliance"}
-{"file": ".trellis/spec/nako-server/backend/source-fingerprint-hash-policy.md", "reason": "Check source duplicate redaction and apply semantics"}

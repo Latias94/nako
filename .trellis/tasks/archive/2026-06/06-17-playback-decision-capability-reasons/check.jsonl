@@ -1,8 +1,0 @@
-{"file":".trellis/spec/guides/cross-layer-thinking-guide.md","reason":"Verify playback, API, protocol, and server mapping remain consistent."}
-{"file":".trellis/spec/nako-playback/backend/quality-guidelines.md","reason":"Check planner test coverage and behavior-oriented assertions."}
-{"file":".trellis/spec/nako-api/backend/admin-and-public-contracts.md","reason":"Check public API compatibility and redaction expectations."}
-{"file":".trellis/spec/nako-client-protocol/backend/quality-guidelines.md","reason":"Check protocol DTO stability and dependency boundaries."}
-{"file":".trellis/spec/nako-server/backend/http-api-patterns.md","reason":"Check route-level query/response conventions."}
-{"file":".trellis/spec/nako-server/backend/quality-guidelines.md","reason":"Check focused server tests and integration coverage."}
-{"file":"docs/architecture/PLAYBACK.md","reason":"Check implementation remains aligned with playback architecture lane."}
-{"file":"docs/plans/2026-06-10-001-feat-media-server-maturity-roadmap-plan.md","reason":"Check task scope against the planned U2 maturity slice."}

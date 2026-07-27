@@ -1,5 +1,0 @@
-{"file": ".trellis/spec/guides/cross-layer-thinking-guide.md", "reason": "Release ladder runner coordinates scripts, deployment docs, operations architecture, and Trellis evidence."}
-{"file": ".trellis/spec/guides/code-reuse-thinking-guide.md", "reason": "Runner must delegate to existing release/smoke scripts instead of duplicating command logic."}
-{"file": ".trellis/spec/nako-server/backend/quality-guidelines.md", "reason": "Existing M1 smoke and release-gate validation guidance lives in the server quality spec."}
-{"file": ".trellis/tasks/archive/2026-06/06-06-m1-operator-journey-smoke/evidence.md", "reason": "Defines the existing M1 operator journey smoke entry point that the ladder should reuse."}
-{"file": ".trellis/tasks/archive/2026-06/06-06-m1-roadmap-queue-refresh-after-source-duplicate-flow/prd.md", "reason": "Names m1-release-ladder-runner as the next executable M1 queue item."}

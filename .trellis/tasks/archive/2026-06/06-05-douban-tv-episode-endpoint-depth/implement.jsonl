@@ -1,5 +1,0 @@
-{"file":".trellis/spec/nako-metadata/backend/index.md","reason":"Douban provider capability, endpoint, mapping, and tests live in nako-metadata."}
-{"file":".trellis/spec/nako-metadata/backend/quality-guidelines.md","reason":"Provider endpoint depth needs focused metadata tests and redaction-safe behavior."}
-{"file":".trellis/spec/nako-metadata/backend/error-handling.md","reason":"Unsupported Season/Episode behavior and parse errors must follow metadata error conventions."}
-{"file":".trellis/spec/guides/cross-layer-thinking-guide.md","reason":"Provider capabilities, search/fetch, candidate graph, and refresh behavior cross local boundaries."}
-{"file":".trellis/tasks/06-05-douban-tv-episode-endpoint-depth/research/douban-tv-endpoint-contract.md","reason":"Records local and external endpoint evidence for the Series-only Douban slice."}

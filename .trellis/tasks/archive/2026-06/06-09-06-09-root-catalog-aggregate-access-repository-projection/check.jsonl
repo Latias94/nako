@@ -1,6 +1,0 @@
-{"file": ".trellis/tasks/06-09-06-09-root-catalog-aggregate-access-repository-projection/research/initial-code-context.md", "reason": "Use prepared context to verify the intended helper loops were removed from root aggregate list routes."}
-{"file": ".trellis/spec/nako-core/backend/quality-guidelines.md", "reason": "Check repository trait contract changes and cross-crate compile coverage."}
-{"file": ".trellis/spec/nako-db/backend/database-guidelines.md", "reason": "Review SQL construction, bind usage, and row mapping consistency."}
-{"file": ".trellis/spec/nako-db/backend/quality-guidelines.md", "reason": "Confirm SQLite/PostgreSQL parity and catalog_access contract coverage."}
-{"file": ".trellis/spec/nako-server/backend/http-api-patterns.md", "reason": "Check Public Catalog route auth/access boundary behavior."}
-{"file": ".trellis/spec/nako-server/backend/quality-guidelines.md", "reason": "Confirm HTTP catalog regression tests and focused server gates."}

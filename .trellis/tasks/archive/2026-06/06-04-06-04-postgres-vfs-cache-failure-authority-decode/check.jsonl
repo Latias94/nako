@@ -1,2 +1,0 @@
-{"file": ".trellis/spec/nako-db/backend/quality-guidelines.md", "reason": "Required PostgreSQL contract and focused DB validation gates"}
-{"file": ".trellis/spec/nako-db/backend/database-guidelines.md", "reason": "Confirm no migration changes are needed for a row mapping-only fix"}

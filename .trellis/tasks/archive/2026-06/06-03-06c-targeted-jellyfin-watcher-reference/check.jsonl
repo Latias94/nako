@@ -1,8 +1,0 @@
-{"file": "docs/legal/LICENSING.md", "reason": "Verify reference findings are behavior-level and do not copy GPL source material."}
-{"file": "docs/architecture/LIBRARY_PIPELINE.md", "reason": "Verify findings map back to Nako watcher/debounce decisions."}
-{"file": "docs/architecture/CONTROL_PLANE.md", "reason": "Verify findings do not override Nako runtime/control-plane boundaries."}
-{"file": ".trellis/tasks/archive/2026-06/06-03-05d-library-watcher-debounce-intake-stability/evidence.md", "reason": "Verify findings target the productization gap left by 05d."}
-{"file": "repo-ref/jellyfin/MediaBrowser.Controller/Library/ILibraryMonitor.cs", "reason": "Verify research stayed within targeted monitor contract reference."}
-{"file": "repo-ref/jellyfin/Emby.Server.Implementations/IO/LibraryMonitor.cs", "reason": "Verify research stayed within targeted watcher lifecycle/event reference."}
-{"file": "repo-ref/jellyfin/Emby.Server.Implementations/IO/FileRefresher.cs", "reason": "Verify research stayed within targeted debounce/delay reference."}
-{"file": "repo-ref/jellyfin/MediaBrowser.Model/Configuration/ServerConfiguration.cs", "reason": "Verify research stayed within targeted monitor delay configuration reference."}

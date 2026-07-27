@@ -1,5 +1,0 @@
-{"file":".trellis/spec/nako-server/backend/index.md","reason":"Check server guideline coverage for changed package."}
-{"file":".trellis/spec/nako-server/backend/directory-structure.md","reason":"Verify watch-folder runtime status contract and non-goals."}
-{"file":".trellis/spec/nako-server/backend/quality-guidelines.md","reason":"Select focused server nextest and cargo check gates."}
-{"file":".trellis/spec/nako-library/backend/quality-guidelines.md","reason":"Ensure intake semantics remain pure and stable-candidate behavior is unchanged."}
-{"file":".trellis/tasks/06-14-m2-watcher-incremental-scan-reliability/prd.md","reason":"Check implementation against acceptance criteria and out-of-scope boundaries."}

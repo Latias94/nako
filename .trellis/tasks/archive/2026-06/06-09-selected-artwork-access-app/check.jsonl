@@ -1,6 +1,0 @@
-{"file": ".trellis/spec/nako-server/backend/index.md", "reason": "Entry point for server backend quality checks."}
-{"file": ".trellis/spec/nako-server/backend/http-api-patterns.md", "reason": "Verify selected artwork access and cache/ETag contract compliance."}
-{"file": ".trellis/spec/nako-server/backend/error-handling.md", "reason": "Verify forbidden/not-found/invalid-input behavior remains mapped correctly."}
-{"file": ".trellis/spec/nako-server/backend/quality-guidelines.md", "reason": "Choose focused cargo check and nextest gates."}
-{"file": ".trellis/spec/guides/cross-layer-thinking-guide.md", "reason": "Review cross-layer access-control data flow."}
-{"file": ".trellis/spec/guides/code-reuse-thinking-guide.md", "reason": "Review helper reuse and cleanup of obsolete access helper."}

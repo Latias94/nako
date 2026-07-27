@@ -1,4 +1,0 @@
-{"file": ".trellis/spec/nako-db/backend/database-guidelines.md", "reason": "PostgreSQL row mapping and migration ownership rules"}
-{"file": ".trellis/spec/nako-db/backend/error-handling.md", "reason": "SQLx decode failure conversion and stored value parsing expectations"}
-{"file": ".trellis/spec/nako-db/backend/quality-guidelines.md", "reason": "SQLite/PostgreSQL contract parity and gate selection"}
-{"file": ".trellis/spec/guides/code-reuse-thinking-guide.md", "reason": "Search existing ID decode and row shape patterns before patching"}

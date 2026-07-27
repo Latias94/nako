@@ -1,9 +1,0 @@
-{"file": ".trellis/spec/nako-vfs/backend/error-handling.md", "reason": "Verify repair diagnostics and refresh errors stay redaction-safe."}
-{"file": ".trellis/spec/nako-vfs/backend/quality-guidelines.md", "reason": "Verify target refresh remains non-destructive and URI-authority preserving."}
-{"file": ".trellis/spec/nako-api/backend/admin-and-public-contracts.md", "reason": "Verify Admin route inventory, generated contracts, and Public/Admin separation."}
-{"file": ".trellis/spec/nako-api/backend/quality-guidelines.md", "reason": "Verify generated contract artifacts are refreshed from source."}
-{"file": ".trellis/spec/nako-server/backend/http-api-patterns.md", "reason": "Verify Admin-only route shape and handler boundary."}
-{"file": ".trellis/spec/nako-server/backend/error-handling.md", "reason": "Verify not-found/invalid target ref responses do not leak input."}
-{"file": ".trellis/spec/nako-server/backend/quality-guidelines.md", "reason": "Verify focused nextest and check gates."}
-{"file": ".trellis/spec/guides/cross-layer-thinking-guide.md", "reason": "Verify VFS/app/API/HTTP/generated-contract flow stays consistent."}
-{"file": ".trellis/tasks/archive/2026-06/06-05-vfs-cache-repair-executable-refresh-action/research/vfs-cache-selected-target-refresh.md", "reason": "Verify implementation matches the local audit boundary."}

@@ -1,4 +1,0 @@
-{"file":".trellis/spec/nako-server/backend/http-api-patterns.md","reason":"Verify HTTP handlers remain thin and Public Catalog read access lives in the app service."}
-{"file":".trellis/spec/nako-server/backend/quality-guidelines.md","reason":"Run focused catalog route tests and server checks."}
-{"file":".trellis/spec/guides/cross-layer-thinking-guide.md","reason":"Review route-to-app-service DTO flow after moving access ownership."}
-{"file":"docs/architecture/STATE_ACCESS.md","reason":"Confirm source probe read access remains consistent with Library Access boundaries."}

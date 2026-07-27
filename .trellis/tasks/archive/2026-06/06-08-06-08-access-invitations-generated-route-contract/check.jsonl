@@ -1,6 +1,0 @@
-{"_example": "Fill with {\"file\": \"<path>\", \"reason\": \"<why>\"}. Put spec/research files only — no code paths. Run `python3 .trellis/scripts/get_context.py --mode packages` to list available specs. Delete this line once real entries are added."}
-{"file": ".trellis/spec/admin-web/frontend/index.md", "reason": "Check Admin Web route/form/data-source/test conventions"}
-{"file": ".trellis/spec/nako-api/backend/index.md", "reason": "Check generated contract source changes"}
-{"file": ".trellis/spec/admin-web/frontend/routes-forms-and-tests.md", "reason": "Check invitation panel tests, redaction, and mutation availability"}
-{"file": ".trellis/tasks/06-08-06-08-access-invitations-generated-route-contract/research/jellyfin-user-access-comparison.md", "reason": "Check final scope stays invitation-only and redacted"}
-{"file": ".trellis/spec/nako-api/backend/admin-and-public-contracts.md", "reason": "Check Admin route constants and generated artifacts"}

@@ -1,5 +1,0 @@
-{"file":".trellis/spec/nako-playback/backend/index.md","reason":"Playback planner capability and reason contract rules"}
-{"file":".trellis/spec/nako-transcode/backend/index.md","reason":"Transcode boundary and reason-handling constraints"}
-{"file":".trellis/spec/nako-server/backend/index.md","reason":"HTTP playback route mapping and test boundaries"}
-{"file":"docs/architecture/PLAYBACK.md","reason":"Playback capability profile and reason contract roadmap"}
-{"file":"docs/plans/2026-06-16-001-feat-backend-self-hosted-maturity-execution-plan.md","reason":"U3 execution slice and acceptance scope"}

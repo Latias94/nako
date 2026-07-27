@@ -1,4 +1,0 @@
-{"file":".trellis/spec/nako-playback/backend/quality-guidelines.md","reason":"Planner purity and capability profile validation gates"}
-{"file":".trellis/spec/nako-transcode/backend/quality-guidelines.md","reason":"FFmpeg planning and runtime boundary gates"}
-{"file":".trellis/spec/nako-server/backend/quality-guidelines.md","reason":"Server HTTP playback route and test gates"}
-{"file":"docs/architecture/PLAYBACK.md","reason":"Playback reason contract and capability lane evidence"}

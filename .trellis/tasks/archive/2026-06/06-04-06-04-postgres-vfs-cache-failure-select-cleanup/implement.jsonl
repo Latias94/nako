@@ -1,3 +1,0 @@
-{"file": ".trellis/spec/nako-db/backend/database-guidelines.md", "reason": "PostgreSQL row mapping and local SQL ownership rules"}
-{"file": ".trellis/spec/nako-db/backend/quality-guidelines.md", "reason": "Contract parity and focused validation gates"}
-{"file": ".trellis/spec/guides/code-reuse-thinking-guide.md", "reason": "Deduplicate repeated SELECT row shape without over-abstracting"}

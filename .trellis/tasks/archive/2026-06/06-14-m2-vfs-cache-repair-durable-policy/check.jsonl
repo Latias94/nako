@@ -1,4 +1,0 @@
-{"file": "docs/architecture/CONTROL_PLANE.md", "reason": "Verify ADR 0053 control-plane and runtime-supervisor boundaries"}
-{"file": ".trellis/spec/nako-vfs/backend/error-handling.md", "reason": "Verify repair diagnostic classification and redaction"}
-{"file": "docs/architecture/STORAGE_VFS.md", "reason": "Verify storage/VFS repair boundaries and follow-ons"}
-{"file": ".trellis/spec/nako-server/backend/quality-guidelines.md", "reason": "Verify focused server gates and VFS repair automation constraints"}

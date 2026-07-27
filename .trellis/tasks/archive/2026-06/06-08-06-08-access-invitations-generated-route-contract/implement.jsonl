@@ -1,7 +1,0 @@
-{"_example": "Fill with {\"file\": \"<path>\", \"reason\": \"<why>\"}. Put spec/research files only — no code paths. Run `python3 .trellis/scripts/get_context.py --mode packages` to list available specs. Delete this line once real entries are added."}
-{"file": ".trellis/spec/admin-web/frontend/routes-forms-and-tests.md", "reason": "Access route invitation panel must follow route-owned forms, data-source, and tests"}
-{"file": ".trellis/tasks/06-08-06-08-access-invitations-generated-route-contract/research/jellyfin-user-access-comparison.md", "reason": "Jellyfin comparison informs invitation-only operator scope"}
-{"file": ".trellis/spec/nako-api/backend/admin-and-public-contracts.md", "reason": "Invitation routes must be generated from nako-api, not hand-edited in TS"}
-{"file": ".trellis/spec/admin-web/frontend/index.md", "reason": "Admin Web route, form, data-source, generated contract, and test rules"}
-{"file": ".trellis/spec/guides/cross-layer-thinking-guide.md", "reason": "Feature spans Rust API contract, generated TS, data source, and UI"}
-{"file": ".trellis/spec/nako-api/backend/index.md", "reason": "Generated Admin API route contract changes touch nako-api"}

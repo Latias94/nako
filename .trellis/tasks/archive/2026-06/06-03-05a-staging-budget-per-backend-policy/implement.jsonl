@@ -1,8 +1,0 @@
-{"file": "docs/architecture/STORAGE_VFS.md", "reason": "Storage backend, staging, and diagnostics authority."}
-{"file": "docs/architecture/CONTROL_PLANE.md", "reason": "Control-plane diagnostics and redaction boundary."}
-{"file": ".trellis/spec/nako-server/backend/index.md", "reason": "Server app-service and test guidance."}
-{"file": ".trellis/spec/nako-server/backend/directory-structure.md", "reason": "Storage admission and diagnostics scenario contracts."}
-{"file": ".trellis/spec/nako-server/backend/quality-guidelines.md", "reason": "Server focused test gates."}
-{"file": ".trellis/spec/nako-vfs/backend/index.md", "reason": "VFS staging and storage backend guidance."}
-{"file": ".trellis/spec/nako-vfs/backend/error-handling.md", "reason": "Redaction-safe storage diagnostics."}
-{"file": ".trellis/spec/nako-api/backend/admin-and-public-contracts.md", "reason": "Admin DTO compatibility if diagnostics mapping changes."}

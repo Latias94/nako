@@ -1,3 +1,0 @@
-{"file": ".trellis/spec/nako-server/backend/index.md", "reason": "Server backend entry point for HTTP route and test conventions."}
-{"file": ".trellis/spec/nako-server/backend/http-api-patterns.md", "reason": "Selected artwork cache-control and HTTP route cache-contract guardrails."}
-{"file": ".trellis/tasks/06-04-06-04-selected-artwork-conditional-get-first-slice/research/selected-artwork-conditional-get.md", "reason": "Task-specific research and chosen conditional GET scope."}

@@ -1,2 +1,0 @@
-{"file":".trellis/spec/admin-web/frontend/routes-forms-and-tests.md","reason":"Verification must cover URL search normalization, route tests, i18n, live-only mutations, redaction, Admin Web check/test/build."}
-{"file":".trellis/spec/guides/code-reuse-thinking-guide.md","reason":"Final review should confirm new helper/constants are scoped and not duplicating broader utility patterns."}

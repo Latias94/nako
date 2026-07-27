@@ -1,5 +1,0 @@
-{"file": "docs/architecture/LIBRARY_PIPELINE.md", "reason": "Verify scan pipeline boundaries."}
-{"file": "docs/architecture/CONTROL_PLANE.md", "reason": "Verify durable runtime/scheduler behavior."}
-{"file": ".trellis/spec/nako-server/backend/directory-structure.md", "reason": "Verify server runtime and scan admission contracts."}
-{"file": ".trellis/spec/nako-server/backend/quality-guidelines.md", "reason": "Verify focused server tests."}
-{"file": ".trellis/spec/nako-db/backend/index.md", "reason": "Verify DB contract implications if touched."}

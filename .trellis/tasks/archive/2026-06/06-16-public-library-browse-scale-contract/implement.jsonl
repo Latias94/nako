@@ -1,9 +1,0 @@
-{"file": "docs/plans/2026-06-16-001-feat-backend-self-hosted-maturity-execution-plan.md", "reason": "U2 large-library browse/search contract anchor."}
-{"file": "docs/architecture/STATE_ACCESS.md", "reason": "Public browse access and access-filtered read model guidance."}
-{"file": "docs/architecture/CONTROL_PLANE.md", "reason": "API scale and cache contract guidance."}
-{"file": ".trellis/spec/nako-server/backend/index.md", "reason": "Server backend pre-development checklist."}
-{"file": ".trellis/spec/nako-server/backend/directory-structure.md", "reason": "App service and HTTP boundary placement."}
-{"file": ".trellis/spec/nako-server/backend/quality-guidelines.md", "reason": "Focused test guidance for server slices."}
-{"file": ".trellis/spec/nako-api/backend/index.md", "reason": "API contract ownership and generated contract guidance."}
-{"file": ".trellis/spec/nako-api/backend/admin-and-public-contracts.md", "reason": "Public client DTO and contract rules for browse/search surfaces."}
-{"file": ".trellis/spec/guides/cross-layer-thinking-guide.md", "reason": "Cross-layer browse/search data flow."}

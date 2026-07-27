@@ -1,3 +1,0 @@
-{"file": ".trellis/spec/nako-playback/backend/quality-guidelines.md", "reason": "Review subtitle/remux guardrails."}
-{"file": ".trellis/spec/nako-transcode/backend/index.md", "reason": "Review transcode HLS strategy ownership."}
-{"file": ".trellis/spec/nako-server/backend/index.md", "reason": "Review server HLS route boundary."}

@@ -1,6 +1,0 @@
-{"file":".trellis/spec/guides/index.md","reason":"Shared quality triggers for planning/release documentation checks."}
-{"file":".trellis/spec/guides/cross-layer-thinking-guide.md","reason":"Check that release-facing docs and architecture maps describe the same ladder evidence."}
-{"file":".trellis/spec/guides/code-reuse-thinking-guide.md","reason":"Check that the matrix links existing evidence rather than copying detailed gate logic."}
-{"file":".trellis/spec/nako-server/backend/quality-guidelines.md","reason":"Check that new guidance preserves M1 runner contracts and validation rules."}
-{"file":".trellis/tasks/archive/2026-06/06-06-m1-release-ladder-runner/prd.md","reason":"Verify matrix facts match completed runner evidence."}
-{"file":".trellis/tasks/archive/2026-06/06-06-m1-operator-journey-smoke/evidence.md","reason":"Verify matrix facts match completed focused smoke evidence."}

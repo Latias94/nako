@@ -1,5 +1,0 @@
-{"file": ".trellis/spec/admin-web/frontend/index.md", "reason": "Admin Web frontend package index and pre-development checklist"}
-{"file": ".trellis/spec/admin-web/frontend/routes-forms-and-tests.md", "reason": "Route, data source, i18n, mock fallback, and test conventions for Admin Web"}
-{"file": ".trellis/spec/nako-api/backend/admin-and-public-contracts.md", "reason": "Operator readiness Admin API contract and redaction boundary"}
-{"file": ".trellis/tasks/06-17-admin-web-operator-readiness-drilldown/prd.md", "reason": "Task requirements and acceptance criteria"}
-{"file": ".trellis/tasks/06-17-admin-web-operator-readiness-drilldown/research/code-context.md", "reason": "Repo-specific affected files and constraints"}

@@ -1,9 +1,0 @@
-{"file": ".trellis/spec/guides/cross-layer-thinking-guide.md", "reason": "The wave intentionally crosses Admin/API, server app services, jobs, DB, and source identity."}
-{"file": ".trellis/spec/nako-server/backend/index.md", "reason": "Server app-service, HTTP, runtime, and source hash policy entry points."}
-{"file": ".trellis/spec/nako-server/backend/source-fingerprint-hash-policy.md", "reason": "Source hash Admin trigger, scheduler, redaction, and duplicate reconciliation boundaries."}
-{"file": ".trellis/spec/nako-api/backend/index.md", "reason": "Admin DTO, route inventory, and generated contract constraints."}
-{"file": ".trellis/spec/nako-api/backend/admin-and-public-contracts.md", "reason": "Generated Admin contract and Public/Admin boundary rules."}
-{"file": ".trellis/spec/nako-library/backend/index.md", "reason": "Source fingerprint evidence, scan, and source identity boundaries."}
-{"file": ".trellis/spec/nako-db/backend/index.md", "reason": "Repository and DB parity constraints for duplicate relationship idempotency."}
-{"file": ".trellis/tasks/archive/2026-06/06-05-source-hash-triggering-reconciliation-policy/research/source-hash-triggering-reconciliation-policy.md", "reason": "Immediate predecessor audit and first follow-on recommendation."}
-{"file": ".trellis/tasks/06-06-06-06-fearless-refactor-development-wave/research/problem-ledger.md", "reason": "Wave queue, findings, and candidate prioritization."}

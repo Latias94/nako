@@ -1,6 +1,0 @@
-{"file": ".trellis/spec/admin-web/frontend/index.md", "reason": "Admin Web package entry point and required frontend guideline routing."}
-{"file": ".trellis/spec/admin-web/frontend/routes-forms-and-tests.md", "reason": "Route/search/data adapter, i18n, mutation confirmation, mock fallback, and test requirements for Admin Web feature slices."}
-{"file": ".trellis/spec/nako-server/backend/source-fingerprint-hash-policy.md", "reason": "Source duplicate reconciliation boundaries: no automatic merge, redaction-safe plan/apply, and live-only explicit apply semantics."}
-{"file": ".trellis/spec/guides/index.md", "reason": "Shared Trellis thinking guide index for reuse and cross-layer checks."}
-{"file": ".trellis/tasks/archive/2026-06/06-06-source-duplicate-reconciliation-operator-flow/prd.md", "reason": "Predecessor shipped operator flow and current plan/apply behavior to preserve."}
-{"file": "docs/architecture/M1_ADMIN_DIAGNOSTICS_REPAIR_COVERAGE.md", "reason": "Architecture evidence that source duplicate M1 repair is shipped and automatic merge/undo remains out of scope."}

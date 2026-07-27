@@ -1,3 +1,0 @@
-{"file": ".trellis/tasks/06-09-06-09-postgres-catalog-access-distinct-order-fix/prd.md", "reason": "Bug reproduction and acceptance criteria for the Postgres DISTINCT ORDER BY fix."}
-{"file": ".trellis/spec/nako-db/backend/database-guidelines.md", "reason": "PostgreSQL SQL builder fix must follow adapter query conventions."}
-{"file": ".trellis/spec/nako-db/backend/quality-guidelines.md", "reason": "PostgreSQL opt-in contract validation is the required evidence."}

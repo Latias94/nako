@@ -1,8 +1,0 @@
-{"file": ".trellis/spec/nako-api/backend/admin-and-public-contracts.md", "reason": "Verify contract generation and admin/public separation."}
-{"file": ".trellis/spec/nako-server/backend/http-api-patterns.md", "reason": "Verify route/auth/version header behavior."}
-{"file": ".trellis/spec/nako-server/backend/error-handling.md", "reason": "Verify redacted standard error envelope behavior."}
-{"file": ".trellis/spec/nako-server/backend/quality-guidelines.md", "reason": "Verify backend tests match local patterns."}
-{"file": ".trellis/spec/admin-web/frontend/routes-forms-and-tests.md", "reason": "Verify frontend form/query/test patterns."}
-{"file": "docs/adr/0027-admin-api-boundary-for-web-console.md", "reason": "Verify Admin API boundary constraints."}
-{"file": "docs/adr/0024-inbound-token-authentication-boundary.md", "reason": "Verify auth behavior and no token leakage."}
-{"file": "docs/adr/0053-application-control-plane-boundary.md", "reason": "Verify control-plane API safety and diagnostics constraints."}

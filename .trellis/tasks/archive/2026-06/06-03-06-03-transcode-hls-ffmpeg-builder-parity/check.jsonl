@@ -1,7 +1,0 @@
-{"file": ".trellis/spec/guides/code-reuse-thinking-guide.md", "reason": "The review must catch duplicated HLS command-fragment assembly."}
-{"file": ".trellis/spec/nako-transcode/backend/index.md", "reason": "The review must verify the transcode crate boundary remains correct."}
-{"file": ".trellis/spec/nako-transcode/backend/directory-structure.md", "reason": "The review must confirm HLS FFmpeg builder changes stay in the correct modules."}
-{"file": ".trellis/spec/nako-transcode/backend/error-handling.md", "reason": "The review must validate command planning error semantics."}
-{"file": ".trellis/spec/nako-transcode/backend/quality-guidelines.md", "reason": "The review must verify typed FFmpeg planning and exact argv tests."}
-{"file": ".trellis/spec/nako-transcode/backend/logging-guidelines.md", "reason": "The review must ensure no unsafe FFmpeg diagnostics were introduced."}
-{"file": ".trellis/tasks/archive/2026-06/06-03-transcode-architecture-parity-jellyfin/research/jellyfin-transcode-parity.md", "reason": "The review should compare the implementation against the prior architecture rationale."}

@@ -1,5 +1,0 @@
-{"file": ".trellis/spec/guides/index.md", "reason": "Shared Trellis thinking guide for review."}
-{"file": ".trellis/spec/nako-server/backend/directory-structure.md", "reason": "Review playback resource admission placement and Direct Play non-blocking contract."}
-{"file": ".trellis/spec/nako-server/backend/quality-guidelines.md", "reason": "Review server test and gate selection."}
-{"file": ".trellis/spec/nako-server/backend/error-handling.md", "reason": "Review conflict and redaction-safe error behavior."}
-{"file": ".trellis/tasks/06-03-06-03-long-horizon-architecture-queue/research/playback-transcode-next-candidates.md", "reason": "Review research-backed rationale and constraints for the HLS admission policy seam task."}

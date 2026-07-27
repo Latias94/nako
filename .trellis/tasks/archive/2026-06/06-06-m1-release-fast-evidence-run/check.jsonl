@@ -1,8 +1,0 @@
-{"file": "docs/deployment/M1_LADDER_EVIDENCE_MATRIX.md", "reason": "Check release-fast mode command, coverage, and failure routing."}
-{"file": "docs/architecture/M1_ADMIN_DIAGNOSTICS_REPAIR_COVERAGE.md", "reason": "Check whether failures map to Admin repair or other owner lanes."}
-{"file": "docs/ROADMAP.md", "reason": "Check next queue remains evidence-driven."}
-{"file": "docs/GOALS.md", "reason": "Check current M1 goal evidence stays aligned."}
-{"file": "docs/architecture/LANES.md", "reason": "Check owner lane for any release-fast blocker."}
-{"file": ".trellis/spec/nako-api/backend/admin-and-public-contracts.md", "reason": "Check generated Admin/Public contract boundaries."}
-{"file": ".trellis/spec/nako-api/backend/quality-guidelines.md", "reason": "Check API/Admin contract validation expectations."}
-{"file": ".trellis/spec/nako-server/backend/quality-guidelines.md", "reason": "Check server/release quality gate expectations."}

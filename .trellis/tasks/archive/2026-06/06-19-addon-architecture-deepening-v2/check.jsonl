@@ -1,5 +1,0 @@
-{"file":".trellis/spec/nako-server/backend/index.md","reason":"检查 Addon 深化后的 server 后端边界、路由和测试约束。"}
-{"file":".trellis/spec/nako-server/backend/directory-structure.md","reason":"检查 app service、HTTP route、runtime 和 tests 的模块归位是否符合目录规则。"}
-{"file":".trellis/spec/nako-server/backend/quality-guidelines.md","reason":"检查 Addon 相关 server 测试门槛、nextest gate 和路由测试方式。"}
-{"file":".trellis/spec/nako-server/backend/logging-guidelines.md","reason":"检查 Addon 相关日志与 redaction 约束是否保持。"}
-{"file":".trellis/spec/nako-api/backend/index.md","reason":"检查 Addon HTTP contract 变化是否需要同步 API 契约和 route inventory。"}

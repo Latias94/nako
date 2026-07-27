@@ -1,5 +1,0 @@
-{"file":"docs/plans/2026-06-16-001-feat-backend-self-hosted-maturity-execution-plan.md","reason":"U2 calls for public browse/search/cache contract hardening for self-hosted maturity."}
-{"file":".trellis/spec/nako-server/backend/http-api-patterns.md","reason":"Public routes must keep auth/access boundaries and return public DTOs through thin HTTP handlers."}
-{"file":".trellis/spec/nako-server/backend/quality-guidelines.md","reason":"Server route tests and focused nextest gates must follow current Nako patterns."}
-{"file":".trellis/spec/nako-client-protocol/backend/index.md","reason":"Public Client responses must remain additive and avoid sensitive field drift."}
-{"file":".trellis/spec/guides/cross-layer-thinking-guide.md","reason":"Cache behavior crosses HTTP headers, frontend/SDK consumers, access filtering, and user-state data flow."}

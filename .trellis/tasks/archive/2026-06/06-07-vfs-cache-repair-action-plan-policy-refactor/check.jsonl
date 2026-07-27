@@ -1,5 +1,0 @@
-{"file": ".trellis/spec/nako-server/backend/index.md", "reason": "Check the server-side storage diagnostics refactor against module and boundary guidance."}
-{"file": ".trellis/spec/nako-server/backend/quality-guidelines.md", "reason": "Check the refactor against focused server verification and quality gates."}
-{"file": ".trellis/spec/nako-vfs/backend/index.md", "reason": "Check that the refactor keeps VFS repair action semantics unchanged."}
-{"file": ".trellis/spec/nako-vfs/backend/quality-guidelines.md", "reason": "Check that the refactor does not widen VFS repair behavior or diagnostics."}
-{"file": ".trellis/tasks/06-07-vfs-cache-repair-action-plan-policy-refactor/research/code-reading.md", "reason": "Use the code-reading notes to verify the duplicated mapping was actually consolidated."}

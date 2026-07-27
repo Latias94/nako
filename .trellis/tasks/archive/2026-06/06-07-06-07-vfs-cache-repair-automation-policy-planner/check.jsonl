@@ -1,3 +1,0 @@
-{"file": ".trellis/spec/nako-server/backend/quality-guidelines.md", "reason": "VFS cache repair app-service test and boundary requirements"}
-{"file": ".trellis/spec/nako-vfs/backend/quality-guidelines.md", "reason": "VFS repair redaction and non-mutating remediation boundary"}
-{"file": ".trellis/spec/nako-vfs/backend/error-handling.md", "reason": "VFS failure classification and repair diagnostic redaction"}

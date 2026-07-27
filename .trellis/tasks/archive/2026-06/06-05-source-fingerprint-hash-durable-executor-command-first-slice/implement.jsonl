@@ -1,9 +1,0 @@
-{"file": ".trellis/spec/nako-server/backend/index.md", "reason": "Server app-service command, durable runtime, storage registry, and focused app tests."}
-{"file": ".trellis/spec/nako-server/backend/directory-structure.md", "reason": "Control-plane boundary: command only, no scheduler/API/runtime worker."}
-{"file": ".trellis/spec/nako-server/backend/database-guidelines.md", "reason": "Repository facade usage and no schema ownership."}
-{"file": ".trellis/spec/nako-server/backend/error-handling.md", "reason": "Durable job failures and public-safe error text."}
-{"file": ".trellis/spec/nako-server/backend/logging-guidelines.md", "reason": "No raw locators or hash material in diagnostics/logs."}
-{"file": ".trellis/spec/nako-server/backend/quality-guidelines.md", "reason": "Focused server gates for source hash app-service behavior."}
-{"file": ".trellis/spec/nako-library/backend/quality-guidelines.md", "reason": "Source hash executor/report/summary redaction contracts."}
-{"file": ".trellis/spec/guides/cross-layer-thinking-guide.md", "reason": "Job input to source state to VFS execution to durable summary data flow."}
-{"file": ".trellis/spec/guides/code-reuse-thinking-guide.md", "reason": "Reuse existing planner, executor, summary, and resource constants."}

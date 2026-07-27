@@ -1,7 +1,0 @@
-{"file": "docs/architecture/LANES.md", "reason": "Storage-vfs, library pipeline, and control-plane coordination."}
-{"file": "docs/architecture/STORAGE_VFS.md", "reason": "Storage health, VFS, staging, and source identity map."}
-{"file": "docs/architecture/LIBRARY_PIPELINE.md", "reason": "Library scan, probe, intake, and scheduling map."}
-{"file": "docs/architecture/CONTROL_PLANE.md", "reason": "Durable jobs and control-plane boundaries."}
-{"file": ".trellis/spec/nako-vfs/backend/index.md", "reason": "VFS backend and storage redaction guidance."}
-{"file": ".trellis/spec/nako-library/backend/index.md", "reason": "Library scan/intake guidance."}
-{"file": ".trellis/spec/nako-server/backend/index.md", "reason": "Server route/app-service guidance for diagnostics."}

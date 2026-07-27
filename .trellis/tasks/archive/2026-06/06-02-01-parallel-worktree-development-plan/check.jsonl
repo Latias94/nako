@@ -1,4 +1,0 @@
-{"file": ".trellis/workflow.md", "reason": "Verify task state and context files follow Trellis rules."}
-{"file": "docs/architecture/LANES.md", "reason": "Check proposed worktree tasks do not violate lane ownership boundaries."}
-{"file": "docs/architecture/WORKSTREAM_LINKS.md", "reason": "Check legacy workstream references remain evidence-only."}
-{"file": "docs/workstreams/README.md", "reason": "Check active workflow authority no longer points at workstreams."}

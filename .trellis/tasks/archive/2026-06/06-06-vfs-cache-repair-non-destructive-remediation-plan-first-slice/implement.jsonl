@@ -1,9 +1,0 @@
-{"file": ".trellis/spec/nako-server/backend/index.md", "reason": "Server app service and Admin HTTP route conventions for the VFS cache remediation plan."}
-{"file": ".trellis/spec/nako-server/backend/http-api-patterns.md", "reason": "Admin route registration, auth guard, and handler mapping rules."}
-{"file": ".trellis/spec/nako-server/backend/error-handling.md", "reason": "Redaction-safe error mapping for invalid or non-admin remediation plan access."}
-{"file": ".trellis/spec/nako-server/backend/quality-guidelines.md", "reason": "Focused server nextest/check gates and test placement guidance."}
-{"file": ".trellis/spec/nako-api/backend/index.md", "reason": "Admin DTO and generated contract entry-point guidance."}
-{"file": ".trellis/spec/nako-api/backend/admin-and-public-contracts.md", "reason": "Admin-only route inventory and generated TypeScript contract rules."}
-{"file": ".trellis/spec/nako-api/backend/quality-guidelines.md", "reason": "Admin contract generation, redaction DTO, and route parity gates."}
-{"file": ".trellis/spec/nako-vfs/backend/index.md", "reason": "VFS cache boundary context and storage-layer non-ownership constraints."}
-{"file": ".trellis/spec/guides/index.md", "reason": "Shared cross-layer and code reuse thinking guides for API/server changes."}

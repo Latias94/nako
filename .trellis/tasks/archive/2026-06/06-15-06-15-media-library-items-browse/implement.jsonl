@@ -1,4 +1,0 @@
-{"file": ".trellis/spec/guides/index.md", "reason": "cross-layer and reuse guidance for extending Media Web browse behavior"}
-{"file": ".trellis/spec/admin-web/frontend/index.md", "reason": "Admin Web frontend conventions"}
-{"file": ".trellis/spec/admin-web/frontend/routes-forms-and-tests.md", "reason": "URL-owned search, Media Web safe error, and browse query boundary contracts"}
-{"file": ".trellis/tasks/06-15-06-15-media-library-items-browse/research/library-items-capability.md", "reason": "Library-scoped browse capability and implementation boundary"}

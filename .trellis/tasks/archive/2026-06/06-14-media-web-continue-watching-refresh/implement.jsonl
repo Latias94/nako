@@ -1,6 +1,0 @@
-{"file": ".trellis/spec/admin-web/frontend/index.md", "reason": "Admin Web frontend scope and required guideline index."}
-{"file": ".trellis/spec/admin-web/frontend/routes-forms-and-tests.md", "reason": "Route, data-source, test, mutation, and redaction conventions for Media Web frontend changes."}
-{"file": ".trellis/spec/guides/index.md", "reason": "Shared thinking guide routing for code reuse and cross-layer checks."}
-{"file": ".trellis/spec/guides/code-reuse-thinking-guide.md", "reason": "Avoid duplicate fixture/state derivation logic while extending Media Web data source behavior."}
-{"file": ".trellis/spec/guides/cross-layer-thinking-guide.md", "reason": "Playback state flows from page events through data source into Continue Watching display."}
-{"file": ".trellis/tasks/06-14-media-web-continue-watching-refresh/prd.md", "reason": "Task requirements, acceptance criteria, and implementation approach."}

@@ -1,6 +1,0 @@
-{"_example": "Fill with {\"file\": \"<path>\", \"reason\": \"<why>\"}. Put spec/research files only — no code paths. Run `python3 .trellis/scripts/get_context.py --mode packages` to list available specs. Delete this line once real entries are added."}
-{"file": "CONTEXT.md", "reason": "Check Addon terminology consistency."}
-{"file": ".trellis/spec/nako-addon-protocol/backend/index.md", "reason": "Check protocol compatibility."}
-{"file": ".trellis/spec/nako-addon-client/backend/index.md", "reason": "Check client health behavior."}
-{"file": ".trellis/spec/nako-official-addon-catalog/backend/index.md", "reason": "Check catalog compatibility."}
-{"file": ".trellis/spec/nako-api/backend/index.md", "reason": "Check DTO redaction if API changed."}

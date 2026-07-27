@@ -1,6 +1,0 @@
-{"file": "docs/deployment/M1_LADDER_EVIDENCE_MATRIX.md", "reason": "Defines M1 ladder modes, evidence rules, skip classification, and failure routing."}
-{"file": "docs/architecture/M1_ADMIN_DIAGNOSTICS_REPAIR_COVERAGE.md", "reason": "Routes Admin diagnostics/repair follow-ons from ladder evidence."}
-{"file": "docs/ROADMAP.md", "reason": "Current Product-Operator M1 evidence-driven queue."}
-{"file": "docs/GOALS.md", "reason": "Current M1 goal state and completion evidence."}
-{"file": "docs/architecture/LANES.md", "reason": "Lane routing for blocker ownership after a ladder failure."}
-{"file": ".trellis/spec/nako-server/backend/quality-guidelines.md", "reason": "Release ladder and server quality gate guidance."}

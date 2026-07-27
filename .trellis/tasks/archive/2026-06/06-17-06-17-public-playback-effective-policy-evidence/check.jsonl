@@ -1,7 +1,0 @@
-{"file": ".trellis/spec/nako-api/backend/admin-and-public-contracts.md", "reason": "Check Admin-only playback policy routes stay out of Public Client outputs and generated contracts match source."}
-{"file": ".trellis/spec/nako-api/backend/quality-guidelines.md", "reason": "Check generated artifacts are regenerated and no sensitive fields are exposed."}
-{"file": ".trellis/spec/nako-server/backend/http-api-patterns.md", "reason": "Check routes inherit Admin guard and handlers remain DTO/repository-service boundaries."}
-{"file": ".trellis/spec/nako-server/backend/quality-guidelines.md", "reason": "Check route tests, inventory gate, and cache/auth expectations."}
-{"file": ".trellis/spec/nako-db/backend/quality-guidelines.md", "reason": "Check existing repository contract coverage remains the persistence proof."}
-{"file": "docs/architecture/STATE_ACCESS.md", "reason": "Check the implementation advances playback-access-policy-and-session-limits without changing broader policy semantics."}
-{"file": "docs/development/REFACTORING_POLICY.md", "reason": "Check no duplicate policy abstraction or wrong-layer SQL was introduced."}

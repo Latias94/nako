@@ -1,6 +1,0 @@
-{"file": ".trellis/spec/guides/index.md", "reason": "Shared thinking guide for code reuse and cross-layer checks."}
-{"file": ".trellis/spec/nako-transcode/backend/index.md", "reason": "Transcode package boundary and required guideline index."}
-{"file": ".trellis/spec/nako-transcode/backend/directory-structure.md", "reason": "FFmpeg HLS command planning locality and module placement."}
-{"file": ".trellis/spec/nako-transcode/backend/error-handling.md", "reason": "Validation and command-planning error semantics."}
-{"file": ".trellis/spec/nako-transcode/backend/quality-guidelines.md", "reason": "Exact argv and HLS command-part quality gates."}
-{"file": ".trellis/tasks/06-04-06-04-hls-seek-restart-command-identity/research/current-hls-seek-command-state.md", "reason": "Current local HLS seek command state and implementation seam."}

@@ -1,7 +1,0 @@
-{"file": ".trellis/spec/nako-server/backend/index.md", "reason": "nako-server backend spec index for final compliance review"}
-{"file": ".trellis/spec/nako-server/backend/http-api-patterns.md", "reason": "verify HTTP handlers stay thin and access decisions live in app services"}
-{"file": ".trellis/spec/nako-server/backend/error-handling.md", "reason": "verify forbidden/not-found/status behavior remains stable"}
-{"file": ".trellis/spec/nako-server/backend/logging-guidelines.md", "reason": "verify command trace/logging changes do not leak HTTP details"}
-{"file": ".trellis/spec/nako-server/backend/quality-guidelines.md", "reason": "verify test coverage and focused gates"}
-{"file": ".trellis/spec/nako-server/backend/directory-structure.md", "reason": "verify module ownership boundaries"}
-{"file": ".trellis/spec/guides/index.md", "reason": "cross-layer and code-reuse review checklist"}

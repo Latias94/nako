@@ -1,5 +1,0 @@
-{"file":"CONTEXT.md","reason":"Verify terminology and addon/catalog vocabulary during review."}
-{"file":".trellis/spec/nako-official-addon-catalog/backend/index.md","reason":"Verify catalog crate output against protocol contract and validation rules."}
-{"file":".trellis/spec/nako-addon-protocol/backend/index.md","reason":"Verify manifest/install-descriptor validation and forbidden patterns."}
-{"file":"docs/plans/PRODUCT_STRATEGY_IMPLEMENTATION_BACKLOG.md","reason":"Verify chosen slice matches product-strategy backlog."}
-{"file":"docs/plans/ADDON_ECOSYSTEM_STRATEGY.md","reason":"Verify catalog-before-manager strategy and trust-tier policy."}

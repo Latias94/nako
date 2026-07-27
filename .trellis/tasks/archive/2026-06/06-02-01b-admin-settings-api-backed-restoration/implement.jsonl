@@ -1,8 +1,0 @@
-{"file": ".trellis/spec/nako-api/backend/admin-and-public-contracts.md", "reason": "Admin/Public DTO and generated contract rules."}
-{"file": ".trellis/spec/nako-server/backend/http-api-patterns.md", "reason": "Server route, auth layer, version header, and handler patterns."}
-{"file": ".trellis/spec/nako-server/backend/error-handling.md", "reason": "API error envelope and boundary logging rules."}
-{"file": ".trellis/spec/nako-server/backend/quality-guidelines.md", "reason": "Backend test and nextest expectations."}
-{"file": ".trellis/spec/admin-web/frontend/routes-forms-and-tests.md", "reason": "Admin Web route, form, query, mutation, and test patterns."}
-{"file": "docs/adr/0027-admin-api-boundary-for-web-console.md", "reason": "Admin API boundary and redaction decision."}
-{"file": "docs/adr/0024-inbound-token-authentication-boundary.md", "reason": "Inbound admin token and auth boundary."}
-{"file": "docs/adr/0053-application-control-plane-boundary.md", "reason": "Control-plane API scale, diagnostics, and policy boundaries."}

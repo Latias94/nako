@@ -1,5 +1,0 @@
-{"file": ".trellis/spec/nako-server/backend/index.md", "reason": "The refactor is inside the server storage diagnostics app service and should follow server module and boundary conventions."}
-{"file": ".trellis/spec/nako-server/backend/quality-guidelines.md", "reason": "The refactor needs focused server verification and should preserve existing test and redaction expectations."}
-{"file": ".trellis/spec/nako-vfs/backend/index.md", "reason": "The shared action-plan semantics depend on VFS repair domain types and boundary meanings."}
-{"file": ".trellis/spec/nako-vfs/backend/quality-guidelines.md", "reason": "The refactor must preserve VFS repair action and diagnostic behavior without widening repair semantics."}
-{"file": ".trellis/tasks/06-07-vfs-cache-repair-action-plan-policy-refactor/research/code-reading.md", "reason": "Records the duplicated mapping sites and the intended refactor target."}

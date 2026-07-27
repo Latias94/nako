@@ -1,8 +1,0 @@
-{"file": ".trellis/spec/nako-library/backend/index.md", "reason": "Library intake planner and stable-candidate rules"}
-{"file": ".trellis/spec/nako-server/backend/index.md", "reason": "Watch-folder runtime, scan admission, Admin overview, and server tests"}
-{"file": "docs/architecture/LIBRARY_PIPELINE.md", "reason": "M2 watcher/debounce productization authority"}
-{"file": ".trellis/spec/nako-api/backend/index.md", "reason": "Admin DTO and generated contract rules if diagnostics change"}
-{"file": "docs/ROADMAP.md", "reason": "M2 large-library reliability target"}
-{"file": "docs/architecture/CONTROL_PLANE.md", "reason": "Runtime supervisor, durable job, and scan admission boundaries"}
-{"file": "docs/architecture/M1_ADMIN_DIAGNOSTICS_REPAIR_COVERAGE.md", "reason": "M1 routing constraint so this task stays M2-scoped"}
-{"file": ".trellis/spec/admin-web/frontend/index.md", "reason": "Admin Web overview/readiness context if UI changes are needed"}

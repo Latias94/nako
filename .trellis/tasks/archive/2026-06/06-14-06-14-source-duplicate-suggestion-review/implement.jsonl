@@ -1,6 +1,0 @@
-{"file": ".trellis/spec/nako-server/backend/source-fingerprint-hash-policy.md", "reason": "Source duplicate reconciliation policy, redaction, apply boundaries, and tests"}
-{"file": ".trellis/spec/nako-server/backend/http-api-patterns.md", "reason": "Admin route handler and auth boundary conventions"}
-{"file": ".trellis/spec/nako-api/backend/admin-and-public-contracts.md", "reason": "Admin DTO and generated contract workflow"}
-{"file": ".trellis/spec/admin-web/frontend/routes-forms-and-tests.md", "reason": "Admin Web route, feature adapter, mutation, i18n, and test conventions"}
-{"file": ".trellis/spec/guides/cross-layer-thinking-guide.md", "reason": "Feature spans core, API, server, data source, and route UI"}
-{"file": ".trellis/spec/guides/code-reuse-thinking-guide.md", "reason": "Reuse existing apply route, feature adapter, and generated route contract"}

@@ -1,5 +1,0 @@
-{"file": ".trellis/spec/nako-vfs/backend/index.md", "reason": "OpenDAL adoption must preserve storage/VFS backend contracts, redaction, capability narrowing, and range/stream behavior."}
-{"file": ".trellis/spec/nako-vfs/backend/quality-guidelines.md", "reason": "The adapter decision must respect the VFS quality gates for URI validation, capability policy, and write safety."}
-{"file": ".trellis/spec/nako-server/backend/index.md", "reason": "The storage adapter decision affects server app-service boundaries, storage diagnostics, and runtime policy."}
-{"file": ".trellis/spec/nako-server/backend/quality-guidelines.md", "reason": "Server verification must cover any storage adapter decision that could change diagnostics or runtime behavior."}
-{"file": ".trellis/tasks/06-07-storage-opendal-adapter-decision-spike/research/opendal-storage-layer.md", "reason": "Records the OpenDAL evaluation, local code inspection, and the recommended decision."}

@@ -1,3 +1,0 @@
-{"file": ".trellis/spec/nako-server/backend/index.md", "reason": "Server backend entry point for HTTP route and test conventions."}
-{"file": ".trellis/spec/nako-server/backend/http-api-patterns.md", "reason": "HTTP route cache header patterns, including the existing HLS-only cache-control guardrail."}
-{"file": ".trellis/tasks/06-04-06-04-selected-artwork-cache-control-headers-first-slice/research/selected-artwork-cache-control.md", "reason": "Task-specific research and chosen selected artwork cache-control boundary."}

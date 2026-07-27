@@ -1,7 +1,0 @@
-{"file":".trellis/spec/nako-server/backend/index.md","reason":"Addon app 和 HTTP translation 都落在 nako-server 的后端边界内，需要遵守现有路由、测试和日志约束。"}
-{"file":".trellis/spec/nako-server/backend/directory-structure.md","reason":"本次工作直接涉及 app service、HTTP route、runtime 和 test module 的拆分方式。"}
-{"file":".trellis/spec/nako-server/backend/quality-guidelines.md","reason":"Addon 深化需要保持 server 测试门槛、路由测试方式和 nextest gate 习惯。"}
-{"file":".trellis/spec/nako-server/backend/logging-guidelines.md","reason":"Addon 控制平面涉及 redaction 和 handler instrumentation，必须维持安全日志边界。"}
-{"file":".trellis/spec/nako-addon-protocol/backend/index.md","reason":"Addon manifest、task、resource、health 相关 contract 深化必须和协议 crate 的边界一致。"}
-{"file":".trellis/spec/nako-addon-client/backend/index.md","reason":"Addon 调用边界和 HTTP caller seam 需要和 client crate 的职责保持一致。"}
-{"file":".trellis/spec/nako-api/backend/index.md","reason":"Addon Admin DTO 和 HTTP contract 变化会影响 nako-api 的生成契约与路由库存。"}

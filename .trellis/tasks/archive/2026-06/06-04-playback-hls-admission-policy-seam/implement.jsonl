@@ -1,5 +1,0 @@
-{"file": ".trellis/spec/guides/index.md", "reason": "Shared Trellis thinking guide for bounded refactor scope."}
-{"file": ".trellis/spec/nako-server/backend/directory-structure.md", "reason": "Resource admission belongs in app/playback runtime helpers and Direct Play pressure must stay non-blocking."}
-{"file": ".trellis/spec/nako-server/backend/quality-guidelines.md", "reason": "Server test and gate selection for playback resource behavior."}
-{"file": ".trellis/spec/nako-server/backend/error-handling.md", "reason": "Conflict and public error contract must remain stable."}
-{"file": ".trellis/tasks/06-03-06-03-long-horizon-architecture-queue/research/playback-transcode-next-candidates.md", "reason": "Research-backed recommendation for the HLS admission policy seam task."}

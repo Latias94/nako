@@ -1,5 +1,0 @@
-{"file":".trellis/spec/nako-server/backend/index.md","reason":"HTTP and app-service patterns for overview readiness and server tests"}
-{"file":".trellis/spec/nako-api/backend/index.md","reason":"Admin DTO and contract generation rules for readiness enum changes"}
-{"file":".trellis/spec/nako-core/backend/index.md","reason":"Core domain guidance for durable job pressure semantics"}
-{"file":"docs/architecture/CONTROL_PLANE.md","reason":"Control-plane durable-job and diagnostics boundaries"}
-{"file":"docs/architecture/M1_ADMIN_DIAGNOSTICS_REPAIR_COVERAGE.md","reason":"M1 routing evidence for operator readiness and durable job triage"}

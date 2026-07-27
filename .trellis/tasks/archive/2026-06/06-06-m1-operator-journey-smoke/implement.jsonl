@@ -1,5 +1,0 @@
-{"file": ".trellis/tasks/06-06-m1-operator-journey-smoke/research/operator-journey-smoke-assets.md", "reason": "Summarizes existing server, release, Admin Web, and historical Web MVP smoke assets for the first M1 operator journey slice."}
-{"file": ".trellis/spec/admin-web/frontend/routes-forms-and-tests.md", "reason": "Admin Web route, data-source, mock fallback, redaction, and test conventions if the smoke touches Admin Web."}
-{"file": ".trellis/spec/nako-server/backend/quality-guidelines.md", "reason": "Server-focused smoke and nextest gate selection if the smoke touches server tests or scripts."}
-{"file": ".trellis/spec/guides/cross-layer-thinking-guide.md", "reason": "The smoke maps product journey steps across config, scan, browse, playback, diagnostics, and release gates."}
-{"file": ".trellis/spec/guides/code-reuse-thinking-guide.md", "reason": "Implementation should reuse existing smoke fixtures, scripts, and tests before adding new artifacts."}

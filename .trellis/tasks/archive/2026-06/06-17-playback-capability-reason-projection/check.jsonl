@@ -1,5 +1,0 @@
-{"file":".trellis/spec/nako-playback/backend/quality-guidelines.md","reason":"Verify decision-report changes preserve planner purity and reason semantics."}
-{"file":".trellis/spec/nako-client-protocol/backend/index.md","reason":"Verify protocol DTO additions remain additive, dependency-light, and redaction-safe."}
-{"file":".trellis/spec/nako-api/backend/admin-and-public-contracts.md","reason":"Verify Public API/OpenAPI/SDK contract updates and no Admin/Public leakage."}
-{"file":".trellis/spec/nako-server/backend/http-api-patterns.md","reason":"Verify playback route behavior remains authenticated and safe."}
-{"file":".trellis/spec/guides/cross-layer-thinking-guide.md","reason":"Check condition details survive protocol/API/server mapping consistently."}

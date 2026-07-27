@@ -1,7 +1,0 @@
-{"file": ".trellis/spec/guides/cross-layer-thinking-guide.md", "reason": "verify data flow and contract boundaries"}
-{"file": ".trellis/spec/nako-core/backend/quality-guidelines.md", "reason": "verify repository contract changes are covered"}
-{"file": ".trellis/spec/nako-db/backend/quality-guidelines.md", "reason": "verify browse projection semantics and contract tests"}
-{"file": ".trellis/spec/nako-server/backend/http-api-patterns.md", "reason": "verify route remains thin and DTO shape is preserved"}
-{"file": ".trellis/spec/nako-server/backend/database-guidelines.md", "reason": "verify server delegates to repository-backed projection"}
-{"file": ".trellis/tasks/06-08-user-playlist-items-repository-projection/prd.md", "reason": "acceptance checklist"}
-{"file": ".trellis/tasks/06-08-user-playlist-items-repository-projection/research/user-playlist-jellyfin-comparison.md", "reason": "architecture comparison risks"}

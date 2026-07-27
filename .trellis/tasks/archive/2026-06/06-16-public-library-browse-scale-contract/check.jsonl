@@ -1,8 +1,0 @@
-{"file": ".trellis/tasks/archive/2026-06/06-16-public-library-browse-scale-contract/prd.md", "reason": "Task scope and acceptance criteria."}
-{"file": "docs/plans/2026-06-16-001-feat-backend-self-hosted-maturity-execution-plan.md", "reason": "Verify task against U2 plan anchor."}
-{"file": "docs/architecture/STATE_ACCESS.md", "reason": "Verify access-filtered browse contract placement."}
-{"file": "docs/architecture/CONTROL_PLANE.md", "reason": "Verify API scale and cache alignment."}
-{"file": ".trellis/spec/nako-server/backend/index.md", "reason": "Verify server boundary compliance."}
-{"file": ".trellis/spec/nako-server/backend/quality-guidelines.md", "reason": "Verify focused test expectations."}
-{"file": ".trellis/spec/nako-api/backend/admin-and-public-contracts.md", "reason": "Verify public contract redaction and DTO ownership."}
-{"file": ".trellis/spec/guides/cross-layer-thinking-guide.md", "reason": "Verify browse/search flow across layers."}

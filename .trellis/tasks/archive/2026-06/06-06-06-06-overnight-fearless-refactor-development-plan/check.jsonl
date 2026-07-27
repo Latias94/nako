@@ -1,7 +1,0 @@
-{"file": ".trellis/spec/nako-vfs/backend/index.md", "reason": "Check storage/VFS changes against backend capability, redaction, and VFS contract expectations."}
-{"file": ".trellis/spec/nako-server/backend/index.md", "reason": "Check runtime, Admin diagnostics, storage service, and durable job changes against server guidance."}
-{"file": ".trellis/spec/nako-library/backend/index.md", "reason": "Check scan/intake/source fingerprint changes against library pipeline guidance."}
-{"file": ".trellis/spec/nako-db/backend/index.md", "reason": "Check persistence or PostgreSQL parity changes against DB guidance."}
-{"file": ".trellis/spec/nako-api/backend/index.md", "reason": "Check Admin DTO and redaction contract changes."}
-{"file": ".trellis/spec/admin-web/frontend/index.md", "reason": "Check Admin Web route/data-source changes if the implementation touches frontend surfaces."}
-{"file": ".trellis/tasks/06-06-06-06-overnight-fearless-refactor-development-plan/research/opendal-storage-layer.md", "reason": "Check implementation decisions against the OpenDAL evaluation and adapter-spike constraints."}

@@ -1,5 +1,0 @@
-{"file": ".trellis/spec/guides/cross-layer-thinking-guide.md", "reason": "Check docs, script behavior, operations map, and task evidence remain aligned."}
-{"file": ".trellis/spec/guides/code-reuse-thinking-guide.md", "reason": "Check the runner composes existing scripts without copying gate internals."}
-{"file": ".trellis/spec/nako-server/backend/quality-guidelines.md", "reason": "Check the M1 release ladder runner contract and validation guidance."}
-{"file": ".trellis/tasks/archive/2026-06/06-06-m1-operator-journey-smoke/evidence.md", "reason": "Check M1 smoke reuse and default fast mode expectations."}
-{"file": ".trellis/tasks/archive/2026-06/06-06-m1-roadmap-queue-refresh-after-source-duplicate-flow/prd.md", "reason": "Check this task satisfies the refreshed M1 queue."}

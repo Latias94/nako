@@ -1,8 +1,0 @@
-{"file": ".trellis/spec/nako-server/backend/index.md", "reason": "Server app/runtime/control-plane rules for any M2 reliability implementation slice."}
-{"file": ".trellis/spec/nako-server/backend/directory-structure.md", "reason": "Guidance for runtime supervisors, app services, startup, and control-plane workflow placement."}
-{"file": ".trellis/spec/nako-server/backend/quality-guidelines.md", "reason": "Focused server tests and validation gates for reliability work."}
-{"file": ".trellis/spec/nako-library/backend/index.md", "reason": "Library scan, ingestion, local inference, and scan/probe reliability rules."}
-{"file": ".trellis/spec/nako-vfs/backend/index.md", "reason": "Storage/VFS adapter, cache, redaction, and remote-storage reliability rules."}
-{"file": ".trellis/spec/guides/cross-layer-thinking-guide.md", "reason": "M2 reliability slices cross server, library, VFS, durable job, and diagnostics layers."}
-{"file": "docs/architecture/STORAGE_VFS.md", "reason": "Authority for storage/VFS shipped foundations and M2 follow-ons."}
-{"file": "docs/architecture/CONTROL_PLANE.md", "reason": "Authority for durable jobs, runtime supervision, diagnostics, and scheduler policy."}

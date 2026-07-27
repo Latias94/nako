@@ -1,7 +1,0 @@
-{"file":".trellis/spec/nako-server/backend/index.md","reason":"Server control-plane, runtime supervision, and watch-folder diagnostic boundaries for degraded/reconciliation watch-folder work."}
-{"file":".trellis/spec/nako-server/backend/directory-structure.md","reason":"Watch-folder runtime diagnostic contract, scan-admission status, and admin overview contract shape."}
-{"file":".trellis/spec/nako-server/backend/quality-guidelines.md","reason":"Server test patterns for watch-folder runtime, admin overview, and redaction-safe diagnostics."}
-{"file":".trellis/spec/nako-library/backend/index.md","reason":"Library intake and scan-admission boundary for stable-candidate behavior that must stay pure."}
-{"file":".trellis/spec/nako-library/backend/quality-guidelines.md","reason":"Stable-candidate and scan-admission invariants for watcher-driven intake behavior."}
-{"file":".trellis/spec/nako-api/backend/index.md","reason":"Admin DTO and generated contract ownership for watch-folder diagnostic surfaces."}
-{"file":".trellis/spec/nako-api/backend/quality-guidelines.md","reason":"Admin contract generation and redaction gates for new watch-folder diagnostic DTOs."}

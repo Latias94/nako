@@ -1,6 +1,0 @@
-{"file": "docs/deployment/M1_LADDER_EVIDENCE_MATRIX.md", "reason": "Check fast-mode command and evidence routing."}
-{"file": "docs/architecture/M1_ADMIN_DIAGNOSTICS_REPAIR_COVERAGE.md", "reason": "Check whether a failure maps to Admin repair or another lane."}
-{"file": "docs/ROADMAP.md", "reason": "Check next queue remains evidence-driven."}
-{"file": "docs/GOALS.md", "reason": "Check current M1 goal evidence stays aligned."}
-{"file": "docs/architecture/LANES.md", "reason": "Check owner lane for any blocker found by the ladder."}
-{"file": ".trellis/spec/nako-server/backend/quality-guidelines.md", "reason": "Check quality gate expectations for release ladder runs."}

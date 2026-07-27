@@ -1,7 +1,0 @@
-{"file": ".trellis/spec/nako-api/backend/admin-and-public-contracts.md", "reason": "Admin route and DTO contract boundaries, generated TypeScript contract workflow, and Public Client exclusion."}
-{"file": ".trellis/spec/nako-api/backend/quality-guidelines.md", "reason": "Admin contract generation, redaction checks, and generated artifact gates."}
-{"file": ".trellis/spec/nako-server/backend/http-api-patterns.md", "reason": "Admin route mounting, auth guard inheritance, query/body handler patterns, and thin HTTP boundary."}
-{"file": ".trellis/spec/nako-server/backend/quality-guidelines.md", "reason": "Focused route tests and route inventory gates for server API changes."}
-{"file": ".trellis/spec/nako-db/backend/database-guidelines.md", "reason": "Confirm the slice reuses existing repository persistence without schema changes or raw SQL in server/API layers."}
-{"file": "docs/architecture/STATE_ACCESS.md", "reason": "Identity, Library Access, Playback Policy, and operator-control roadmap boundary."}
-{"file": "docs/development/REFACTORING_POLICY.md", "reason": "Keep the implementation on existing correct boundaries and avoid compatibility shims or duplicate policy models."}

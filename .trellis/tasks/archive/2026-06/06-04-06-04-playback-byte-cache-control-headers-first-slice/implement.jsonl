@@ -1,3 +1,0 @@
-{"file": ".trellis/spec/nako-server/backend/index.md", "reason": "Server backend route/test conventions."}
-{"file": ".trellis/spec/nako-server/backend/http-api-patterns.md", "reason": "HTTP cache header guardrails for HLS, selected artwork, and playback byte responses."}
-{"file": ".trellis/tasks/06-04-06-04-playback-byte-cache-control-headers-first-slice/research/playback-byte-cache-control.md", "reason": "Task-specific research and scope boundaries."}

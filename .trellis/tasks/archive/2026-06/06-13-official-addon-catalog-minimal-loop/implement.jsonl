@@ -1,7 +1,0 @@
-{"file":"CONTEXT.md","reason":"Project glossary for addon, addon protocol, addon suite, install guide, and official catalog terminology."}
-{"file":".trellis/spec/nako-official-addon-catalog/backend/index.md","reason":"Official addon catalog crate contract and validation expectations."}
-{"file":".trellis/spec/nako-addon-protocol/backend/index.md","reason":"Addon manifest/install-descriptor protocol constraints and validation rules."}
-{"file":"docs/plans/PRODUCT_STRATEGY_IMPLEMENTATION_BACKLOG.md","reason":"Product-strategy slice definition and recommended first task."}
-{"file":"docs/plans/ADDON_ECOSYSTEM_STRATEGY.md","reason":"Addon catalog before manager strategy and trust-tier guidance."}
-{"file":".trellis/tasks/06-13-official-addon-catalog-minimal-loop/research/official-addon-catalog-crate.md","reason":"Catalog crate research findings and minimal implementation path."}
-{"file":".trellis/tasks/06-13-official-addon-catalog-minimal-loop/research/official-addon-addons-repo.md","reason":"Official addons repository facts and catalog field coverage."}

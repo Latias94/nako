@@ -1,5 +1,0 @@
-{"file":".trellis/spec/nako-server/backend/quality-guidelines.md","reason":"Backend focused nextest and cargo check gates."}
-{"file":".trellis/spec/nako-server/backend/directory-structure.md","reason":"Verify watch-folder runtime diagnostics and redaction contract."}
-{"file":".trellis/spec/nako-api/backend/index.md","reason":"Verify Admin API DTO and generated contract expectations."}
-{"file":".trellis/spec/admin-web/frontend/index.md","reason":"Verify Admin Web test/build/check expectations."}
-{"file":".trellis/tasks/06-14-06-14-m2-watch-folder-admin-diagnostics/prd.md","reason":"Check implementation against Option B acceptance criteria and non-goals."}

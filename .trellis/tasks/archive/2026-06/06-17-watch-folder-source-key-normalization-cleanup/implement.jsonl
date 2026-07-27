@@ -1,7 +1,0 @@
-{"_example": "Fill with {\"file\": \"<path>\", \"reason\": \"<why>\"}. Put spec/research files only — no code paths. Run `python3 .trellis/scripts/get_context.py --mode packages` to list available specs. Delete this line once real entries are added."}
-{"file": ".trellis/spec/nako-server/backend/index.md", "reason": "Server app boundaries for acquisition intake and watch-folder discovery."}
-{"file": ".trellis/spec/nako-server/backend/quality-guidelines.md", "reason": "Server-side tests and quality expectations for behavior changes."}
-{"file": ".trellis/spec/nako-db/backend/database-guidelines.md", "reason": "Migration, SQL, and cross-backend database guidance."}
-{"file": ".trellis/spec/nako-db/backend/index.md", "reason": "Database crate ownership and repository boundary guidance."}
-{"file": ".trellis/spec/nako-db/backend/quality-guidelines.md", "reason": "Database contract and migration tests for repository behavior."}
-{"file": ".trellis/spec/nako-core/backend/index.md", "reason": "Core repository contract boundaries touched by intake persistence."}

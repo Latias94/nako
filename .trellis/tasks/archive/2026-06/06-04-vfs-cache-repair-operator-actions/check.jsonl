@@ -1,3 +1,0 @@
-{"file":".trellis/spec/nako-api/backend/admin-and-public-contracts.md","reason":"Check any Admin DTO or route inventory change against generated-contract and redaction rules."}
-{"file":".trellis/spec/nako-server/backend/http-api-patterns.md","reason":"Check focused Admin route tests, auth behavior, and thin handler boundaries."}
-{"file":".trellis/spec/nako-vfs/backend/index.md","reason":"Check VFS repair behavior against storage failure/error handling and logging guidance."}

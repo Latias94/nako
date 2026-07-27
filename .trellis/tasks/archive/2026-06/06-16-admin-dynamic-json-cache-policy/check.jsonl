@@ -1,4 +1,0 @@
-{"file":".trellis/spec/nako-server/backend/http-api-patterns.md","reason":"Verify Admin dynamic JSON cache policy against HTTP route patterns."}
-{"file":".trellis/spec/nako-server/backend/quality-guidelines.md","reason":"Verify focused server gates and route test coverage."}
-{"file":".trellis/spec/nako-api/backend/admin-and-public-contracts.md","reason":"Ensure no unintended Admin API DTO/generated contract changes."}
-{"file":".trellis/spec/guides/cross-layer-thinking-guide.md","reason":"Review cross-layer scope boundaries and avoid expanding beyond HTTP response headers."}

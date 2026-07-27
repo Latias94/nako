@@ -1,7 +1,0 @@
-{"file": ".trellis/spec/nako-api/backend/index.md", "reason": "Check generated Admin API route contract changes"}
-{"file": ".trellis/spec/nako-api/backend/admin-and-public-contracts.md", "reason": "Check Admin route constants and generated artifacts"}
-{"file": ".trellis/spec/nako-api/backend/quality-guidelines.md", "reason": "Check route inventory parity, generated artifacts, and redaction"}
-{"file": ".trellis/spec/nako-server/backend/index.md", "reason": "Check server route inventory parity evidence"}
-{"file": ".trellis/spec/admin-web/frontend/index.md", "reason": "Check Admin Web route/filter/data-source/test conventions"}
-{"file": ".trellis/spec/admin-web/frontend/routes-forms-and-tests.md", "reason": "Check Artwork maintenance route tests, fallback, and redaction"}
-{"file": ".trellis/tasks/06-08-managed-artwork-maintenance-readonly-generated-route-contract/research/jellyfin-managed-artwork-maintenance-comparison.md", "reason": "Check final scope stays narrow, read-only, route-owned, and redacted"}

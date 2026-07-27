@@ -1,6 +1,0 @@
-{"file": ".trellis/spec/guides/index.md", "reason": "Shared thinking guide for reviewing boundary and reuse risks."}
-{"file": ".trellis/spec/nako-transcode/backend/index.md", "reason": "Transcode package quality context."}
-{"file": ".trellis/spec/nako-transcode/backend/error-handling.md", "reason": "Validate invalid-input vs unsupported behavior."}
-{"file": ".trellis/spec/nako-transcode/backend/quality-guidelines.md", "reason": "HLS exact argv, artifact, and subtitle strategy review checklist."}
-{"file": ".trellis/tasks/06-04-hls-text-subtitle-burn-in-ffmpeg-planning/research/current-ffmpeg-hls-burn-in-builder.md", "reason": "Expected burn-in command-planning seam for checker validation."}
-{"file": ".trellis/tasks/06-04-hls-text-subtitle-burn-in-ffmpeg-planning/verification.md", "reason": "Final verification commands and pass results."}

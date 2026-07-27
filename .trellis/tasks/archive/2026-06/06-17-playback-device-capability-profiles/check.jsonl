@@ -1,8 +1,0 @@
-{"file":".trellis/spec/guides/cross-layer-thinking-guide.md","reason":"Check profile fields survive every boundary from client wire DTOs into planner identity."}
-{"file":".trellis/spec/nako-playback/backend/quality-guidelines.md","reason":"Check deterministic profile identity behavior and planner tests."}
-{"file":".trellis/spec/nako-client-protocol/backend/quality-guidelines.md","reason":"Check protocol serde and sensitive-field tests."}
-{"file":".trellis/spec/nako-api/backend/admin-and-public-contracts.md","reason":"Check public capability contract parity and generator coverage."}
-{"file":".trellis/spec/nako-api/backend/quality-guidelines.md","reason":"Check OpenAPI/SDK generated surfaces and forbidden term tests."}
-{"file":".trellis/spec/nako-server/backend/http-api-patterns.md","reason":"Check playback query/body mapping remains thin and compatible."}
-{"file":".trellis/spec/nako-server/backend/quality-guidelines.md","reason":"Check focused route tests for playback capability mapping."}
-{"file":"docs/architecture/PLAYBACK.md","reason":"Check implementation remains within U2 device capability profile lane."}

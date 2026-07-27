@@ -1,3 +1,0 @@
-{"file": ".trellis/spec/nako/backend/quality-guidelines.md", "reason": "Workspace evidence uses package-level Rust quality expectations."}
-{"file": ".trellis/spec/nako-server/backend/quality-guidelines.md", "reason": "Workspace gate includes server tests and self-host regressions."}
-{"file": ".trellis/spec/nako-transcode/backend/quality-guidelines.md", "reason": "Workspace gate exposed HLS runner artifact readiness timing in nako-transcode tests."}

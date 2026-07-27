@@ -1,6 +1,0 @@
-{"file": ".trellis/spec/nako-server/backend/index.md", "reason": "nako-server backend spec index for final review"}
-{"file": ".trellis/spec/nako-server/backend/http-api-patterns.md", "reason": "verify HTTP admin guard behavior and route-thinness"}
-{"file": ".trellis/spec/nako-server/backend/error-handling.md", "reason": "verify forbidden error response remains stable"}
-{"file": ".trellis/spec/nako-server/backend/quality-guidelines.md", "reason": "verify focused metadata/server gates"}
-{"file": ".trellis/spec/nako-server/backend/directory-structure.md", "reason": "verify obsolete module removal and ownership"}
-{"file": ".trellis/spec/guides/index.md", "reason": "cross-layer and code-reuse review checklist"}

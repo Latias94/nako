@@ -1,3 +1,0 @@
-{"file": ".trellis/spec/nako-server/backend/directory-structure.md", "reason": "Verify resource admission policy stays in resource helper layer and HLS orchestration stays in hls/hls_flow."}
-{"file": ".trellis/spec/nako-server/backend/quality-guidelines.md", "reason": "Verify bounded wait and immediate rejection tests are covered."}
-{"file": ".trellis/tasks/06-04-playback-resource-admission-bounded-wait-first-slice/research/playback-resource-admission-current-state.md", "reason": "Verify implementation stays inside chosen bounded HLS start wait slice."}

@@ -1,7 +1,0 @@
-{"file": ".trellis/spec/guides/index.md", "reason": "Shared verification guidance."}
-{"file": ".trellis/spec/guides/code-reuse-thinking-guide.md", "reason": "Check that the new suite reuses existing filters/patterns and avoids duplication drift."}
-{"file": ".trellis/spec/nako-db/backend/index.md", "reason": "Verify PostgreSQL harness changes stay in the database boundary."}
-{"file": ".trellis/spec/nako-db/backend/quality-guidelines.md", "reason": "Verify the suite-selection contract, PowerShell/Bash parity, and validation gates."}
-{"file": ".trellis/spec/nako-db/backend/database-guidelines.md", "reason": "Verify no SQL/migration or adapter behavior changes were introduced."}
-{"file": ".trellis/spec/nako-core/backend/index.md", "reason": "Verify durable job repository contracts were not changed."}
-{"file": ".trellis/spec/nako-core/backend/quality-guidelines.md", "reason": "Verify any durable contract claims are supported by focused tests."}

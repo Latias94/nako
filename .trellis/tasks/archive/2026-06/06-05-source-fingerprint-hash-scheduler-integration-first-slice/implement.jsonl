@@ -1,7 +1,0 @@
-{"file": ".trellis/spec/nako-server/backend/index.md", "reason": "Server scheduler/runtime and app-service command integration."}
-{"file": ".trellis/spec/nako-server/backend/directory-structure.md", "reason": "Durable scheduler boundary, no hidden runtime loop, and source hash scheduler constraints."}
-{"file": ".trellis/spec/nako-server/backend/logging-guidelines.md", "reason": "Ensure scheduler-originated logs and diagnostics stay redaction-safe."}
-{"file": ".trellis/spec/nako-server/backend/quality-guidelines.md", "reason": "Focused server scheduler and source hash app tests/gates."}
-{"file": ".trellis/spec/nako-library/backend/quality-guidelines.md", "reason": "Source fingerprint hash executor, summary, and persisted redaction contracts."}
-{"file": ".trellis/spec/guides/cross-layer-thinking-guide.md", "reason": "Job queue to scheduler to VFS execution to summary persistence data flow."}
-{"file": ".trellis/spec/guides/code-reuse-thinking-guide.md", "reason": "Reuse existing durable scheduler and single-job executor command instead of duplicating hashing logic."}

@@ -1,6 +1,0 @@
-{"file": ".trellis/spec/nako-server/backend/index.md", "reason": "nako-server backend spec index and pre-development checklist for HTTP/app-service work"}
-{"file": ".trellis/spec/nako-server/backend/http-api-patterns.md", "reason": "renderer HTTP handler auth/access boundary conventions"}
-{"file": ".trellis/spec/nako-server/backend/error-handling.md", "reason": "stable NakoError-to-HTTP behavior for access denial"}
-{"file": ".trellis/spec/nako-server/backend/quality-guidelines.md", "reason": "focused server test and gate expectations"}
-{"file": ".trellis/spec/guides/cross-layer-thinking-guide.md", "reason": "access decision moves across HTTP and app-service layers"}
-{"file": ".trellis/spec/guides/code-reuse-thinking-guide.md", "reason": "reuse existing playback access/policy mechanisms instead of duplicating helpers"}

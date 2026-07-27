@@ -1,6 +1,0 @@
-{"file": ".trellis/spec/guides/cross-layer-thinking-guide.md", "reason": "The slice crosses generated API route inventory, AdminApiClient path construction, AdminDataSource load paths, and frontend tests."}
-{"file": ".trellis/spec/guides/code-reuse-thinking-guide.md", "reason": "Addon credential paths should reuse generated route constants rather than duplicating route suffix construction in Admin Web."}
-{"file": ".trellis/spec/nako-api/backend/admin-and-public-contracts.md", "reason": "Promoting Admin-only Addon credential routes must preserve the generated Admin contract and Public Client separation."}
-{"file": ".trellis/spec/nako-api/backend/quality-guidelines.md", "reason": "Generated Admin Web contract artifacts must be regenerated from nako-api after route inventory changes."}
-{"file": ".trellis/spec/admin-web/frontend/routes-forms-and-tests.md", "reason": "Admin Web live calls must go through AdminApiClient, NAKO_ADMIN_ROUTES, and AdminDataSource tests."}
-{"file": ".trellis/tasks/06-08-06-08-addon-credential-generated-route-contract/research/jellyfin-addon-credential-routes.md", "reason": "Records why Nako should make Addon credential routes explicit without copying Jellyfin API key semantics."}

@@ -1,8 +1,0 @@
-{"file": "docs/deployment/M1_LADDER_EVIDENCE_MATRIX.md", "reason": "Completed ladder evidence matrix that drives M1 diagnostics/repair routing."}
-{"file": "docs/architecture/CONTROL_PLANE.md", "reason": "Admin diagnostics, durable jobs, repair, redaction, and ADR 0053 control-plane boundaries."}
-{"file": "docs/architecture/STORAGE_VFS.md", "reason": "Source identity and VFS cache repair coverage state."}
-{"file": "docs/architecture/LIBRARY_PIPELINE.md", "reason": "Metadata governance, generated artifact repair, artwork, and catalog coverage state."}
-{"file": "docs/architecture/OPERATIONS_RELEASE.md", "reason": "Release ladder and operations evidence context."}
-{"file": ".trellis/spec/nako-api/backend/admin-and-public-contracts.md", "reason": "Admin diagnostic DTO and contract redaction rules."}
-{"file": ".trellis/spec/nako-server/backend/source-fingerprint-hash-policy.md", "reason": "Source hash, source duplicate reconciliation, retry/requeue, and Admin repair boundaries."}
-{"file": ".trellis/spec/admin-web/frontend/routes-forms-and-tests.md", "reason": "Admin Web repair route, adapter, confirmation, fallback, and redaction guidance."}

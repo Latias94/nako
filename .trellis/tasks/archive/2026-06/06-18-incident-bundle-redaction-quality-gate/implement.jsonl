@@ -1,4 +1,0 @@
-{"file":".trellis/spec/nako-api/backend/index.md","reason":"Package-level checklist for API contract and redaction-sensitive DTO work."}
-{"file":".trellis/spec/nako-api/backend/admin-and-public-contracts.md","reason":"Incident Bundle Admin contract and redaction boundaries."}
-{"file":".trellis/spec/nako-api/backend/quality-guidelines.md","reason":"API test gate, redaction, and generated contract quality guidance."}
-{"file":".trellis/spec/guides/index.md","reason":"Shared checklist for thinking about reuse and cross-layer scope."}

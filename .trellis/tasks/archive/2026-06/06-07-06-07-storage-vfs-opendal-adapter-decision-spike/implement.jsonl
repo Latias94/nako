@@ -1,9 +1,0 @@
-{"file": ".trellis/spec/guides/index.md", "reason": "Shared thinking triggers for architecture and cross-layer decision work."}
-{"file": ".trellis/spec/guides/code-reuse-thinking-guide.md", "reason": "OpenDAL evaluation must reuse existing VFS concepts instead of adding parallel storage semantics."}
-{"file": ".trellis/spec/guides/cross-layer-thinking-guide.md", "reason": "Storage adapter decisions affect VFS, server, cache repair, scan, probe, playback, and Admin diagnostics boundaries."}
-{"file": ".trellis/spec/nako-vfs/backend/index.md", "reason": "nako-vfs owns StorageBackend, StorageUri, capabilities, cache diagnostics, local/WebDAV adapters, and adapter placement rules."}
-{"file": ".trellis/spec/nako-vfs/backend/directory-structure.md", "reason": "Confirms where future storage adapter modules belong and what must remain in common contracts."}
-{"file": ".trellis/spec/nako-vfs/backend/quality-guidelines.md", "reason": "Confirms URI, capability, cache fallback, range-read, write safety, and test requirements for future adapter work."}
-{"file": ".trellis/spec/nako-vfs/backend/error-handling.md", "reason": "Confirms storage failure classification and redaction-safe diagnostics requirements."}
-{"file": ".trellis/spec/nako-vfs/backend/logging-guidelines.md", "reason": "Confirms future OpenDAL-backed adapters must not log provider secrets, raw paths, or unsafe backend details."}
-{"file": ".trellis/tasks/archive/2026-06/06-07-06-07-storage-vfs-opendal-adapter-decision-spike/research/opendal-adapter-decision.md", "reason": "Research notes for OpenDAL crate metadata, API shape, alternatives, risks, and recommended proof slice."}

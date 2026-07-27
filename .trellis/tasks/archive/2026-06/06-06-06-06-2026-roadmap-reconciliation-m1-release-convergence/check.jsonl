@@ -1,3 +1,0 @@
-{"file": ".trellis/tasks/06-06-06-06-2026-roadmap-reconciliation-m1-release-convergence/research/current-roadmap-state.md", "reason": "Check docs output against the captured current roadmap evidence."}
-{"file": ".trellis/spec/guides/cross-layer-thinking-guide.md", "reason": "Verify lane, milestone, and release-gate routing stays internally consistent."}
-{"file": ".trellis/spec/guides/code-reuse-thinking-guide.md", "reason": "Verify proposed follow-on names reuse existing lane vocabulary where possible."}
